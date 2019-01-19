@@ -1,5 +1,6 @@
 import redis
 import glob
+import os
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 
@@ -61,7 +62,7 @@ class Command(BaseCommand):
 
     def handle_storage(self, *args, **options):
         
-        paths_fs = set(glob.glob("metalearn/nn/data/set_*/exp_*/ep_*/"))
+        paths_fs = set(glob.glob("metalearn/ml/data/set_*/exp_*/ep_*/"))
         paths_db_hasFolder = set([])
         path_to_id = {}
         #print(paths_fs)
@@ -72,8 +73,8 @@ class Command(BaseCommand):
             cursor.execute(query)
             rows = cursor.fetchall()
             for row in rows:
-                path_to_id["metalearn/nn/data/set_%s/exp_%s/ep_%s/" % (row[0], row[1], row[2])] = row[3]
-                paths_db_hasFolder.append("metalearn/nn/data/set_%s/exp_%s/ep_%s/" % (row[0], row[1], row[2]))
+                path_to_id["metalearn/ml/data/set_%s/exp_%s/ep_%s/" % (row[0], row[1], row[2])] = row[3]
+                paths_db_hasFolder.append("metalearn/ml/data/set_%s/exp_%s/ep_%s/" % (row[0], row[1], row[2]))
         
         missing_in_fs = paths_db_hasFolder - paths_fs
         should_not_be_in_fs = paths_fs - paths_db_hasFolder
@@ -123,6 +124,8 @@ class Command(BaseCommand):
                     if "delete-fs" in [options["argument0"], options["argument1"]]:
                         for to_delete in should_not_be_in_fs:
                             print("  Deleting '%s' from fs" % to_delete  )
+                            os.system("rm -r '%s'" % to_delete  )
+                        os.system("find 'metalearn/ml/data/' -type d -empty -delete")
                     else:
                         print(" %s items should not be in Filesystem, use 'delete-fs' option to force deletion" % (len(should_not_be_in_fs)))
                 
