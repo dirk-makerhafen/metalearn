@@ -107,13 +107,13 @@ class Architecture_ESAtariPolicy(Architecture):
             o = tf.placeholder(tf.float32, [None] + list(self.ob_space_shape))
 
             x = layers.convolution2d(o, num_outputs=16, kernel_size=8, stride=4, activation_fn=None, scope='conv1')
-            x = layers.batch_norm(x, scale=True, is_training=is_training, decay=0., updates_collections=None, activation_fn=tf.nn.relu, epsilon=1e-3)
+            x = layers.batch_norm(x, scale=True, is_training=False, decay=0., updates_collections=None, activation_fn=tf.nn.relu, epsilon=1e-3)
             x = layers.convolution2d(x, num_outputs=32, kernel_size=4, stride=2, activation_fn=None, scope='conv2')
-            x = layers.batch_norm(x, scale=True, is_training=is_training, decay=0., updates_collections=None, activation_fn=tf.nn.relu, epsilon=1e-3)
+            x = layers.batch_norm(x, scale=True, is_training=False, decay=0., updates_collections=None, activation_fn=tf.nn.relu, epsilon=1e-3)
 
             x = layers.flatten(x)
             x = layers.fully_connected(x, num_outputs=256, activation_fn=None, scope='fc')
-            x = layers.batch_norm(x, scale=True, is_training=is_training, decay=0., updates_collections=None, activation_fn=tf.nn.relu, epsilon=1e-3)
+            x = layers.batch_norm(x, scale=True, is_training=False, decay=0., updates_collections=None, activation_fn=tf.nn.relu, epsilon=1e-3)
             x = layers.fully_connected(x, num_outputs=self.num_actions, activation_fn=None, scope='out')
             a = tf.argmax(x,1)
 
