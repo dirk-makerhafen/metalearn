@@ -56,10 +56,12 @@ def getEpisodeNoisyExecution(request, preferedEpisodeIds = ''):
                 .update(status = "locked", lock = lock, client =  "some client")
             if locked == 1:
                 episodeNoisyExecutionJson = {
-                    "id"                : episodeNoisyExecution.id,
                     "lock"              : lock,
+                    "id"                : episodeNoisyExecution.id,
                     "noiseseed"         : episodeNoisyExecution.noiseseed,
                     "episode.id"        : episodeNoisyExecution.episode.id,
+                    "max_timespend"     : episodeNoisyExecution.episode.episodeNoisyExecution_timespend,
+                    "max_steps"         : episodeNoisyExecution.episode.episodeNoisyExecution_steps,
                     "environment.name"  : episodeNoisyExecution.environment.name,
                     "architecture.name" : episodeNoisyExecution.architecture.name,
                 }

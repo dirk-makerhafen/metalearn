@@ -64,10 +64,10 @@ class WeightsNoiseCache():
         if len(cached_ids) > 20:
             print("Cache to large")
             for cached_id in cached_ids[20:]:
-                removed = redisconnection.zrem("WeightsNoiseCache_ids", cached_id[0])
+                removed = redisconnection.zrem("WeightsNoiseCache_ids", int(cached_id[0]))
                 if removed > 0:
                     print("removed")
-                    os.system("rm '/tmp/WeightsNoiseCache/%s.cache'" % cached_id[0])
+                    os.system("rm '/tmp/WeightsNoiseCache/%s.cache'" % int(cached_id[0]))
                 
         return numpy.load(io.BytesIO(open(fname,"rb").read()))        
 
@@ -135,22 +135,23 @@ def run(nr_of_executions = 1):
         last_environment  = environment
         last_envarchkey = envarchkey
         fitness = 0
-        count = 0
+        steps = 0
 
         while environment.hasNextObservation():
             observation = environment.getNextObservation()
             action = architecture.run(observation)
             fitness += environment.runAction(action) 
             #env.env.render()
-            count += 1
-            if count > 10000:
+            steps += 1
+            if steps >= noisyExecution["max_steps"]:
                 break
-        stop = time.time()
+            if int(time.time() - start) >= noisyExecution["max_timespend"]:
+                break
         
         results = json.dumps({
             "fitness" : fitness,
-            "steps" : count,
-            "timespend" : int(stop - start),
+            "steps" : steps,
+            "timespend" : int(time.time() - start),
         })
         print(results)
         requests.post("%s/putResult/%s/%s" % (APIURL, noisyExecution["id"], noisyExecution["lock"]), results)
