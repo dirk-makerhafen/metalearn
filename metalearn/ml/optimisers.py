@@ -60,9 +60,9 @@ class AdamOptimizer(object):
         return new_weights, ratio
 
     def _compute_step(self, globalg):
-        if self.m == None:
+        if self.m is None:
             self.m = np.zeros(self.dim, dtype=np.float32)
-        if self.v == None:
+        if self.v is None:
             self.v = np.zeros(self.dim, dtype=np.float32)
 
         a = self.learning_rate * np.sqrt(1 - self.beta2 ** self.t) / (1 - self.beta1 ** self.t)
