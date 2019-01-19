@@ -39,12 +39,12 @@ def getEpisodeNoisyExecution(request, preferedEpisodeIds = ''):
         episodeNoisyExecutions = models.EpisodeNoisyExecution.objects           \
             .filter(status = "idle")                            \
             .filter(episode__status = "active")                \
-            .filter(episode__id__in = preferedEpisodeIds)[:3]
+            .filter(episode__id__in = preferedEpisodeIds).order_by('number')[:3]
 
     if len(episodeNoisyExecutions) == 0:
         episodeNoisyExecutions = models.EpisodeNoisyExecution.objects           \
             .filter(status = "idle")                            \
-            .filter(episode__status = "active")[:3]
+            .filter(episode__status = "active").order_by('number')[:3]
 
     episodeNoisyExecutions = list(episodeNoisyExecutions)
 

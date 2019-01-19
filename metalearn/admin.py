@@ -34,9 +34,12 @@ class ExperimentSetToOptimiser_Inline(admin.TabularInline):
 
 class ExperimentSet_Admin(admin.ModelAdmin):
     inlines = (ExperimentSetToEnvironment_Inline, ExperimentSetToArchitecture_Inline, ExperimentSetToOptimiser_Inline)
+    list_display = ('id', "created", 'name', "status","timespend", "max_Episodes", "episodeNoisyExecutions_count_min", "episodeNoisyExecutions_count_max", \
+        "episodeNoisyExecution_timespend_min", "episodeNoisyExecution_timespend_max","episodeNoisyExecution_steps_min", "episodeNoisyExecution_steps_max" )
     list_filter = ('status',)
 
 class Experiment_Admin(admin.ModelAdmin):
+    list_display = ('id', "created", 'status', "timespend", "environment", "architecture", "optimiser", "experimentSet" )
     list_filter = ('status',)
 
 class Episode_Admin(admin.ModelAdmin):

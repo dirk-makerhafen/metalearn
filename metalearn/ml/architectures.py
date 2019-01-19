@@ -175,6 +175,11 @@ all_architectures = {
         "description" : "GAAtariPolicy elu",
         "class" : factory(Architecture_GAAtariPolicy, nonlin_type = "elu"),
     },
+    "ESAtariPolicy" : {
+        "description" : "ESAtariPolicy",
+        "class" : factory(Architecture_ESAtariPolicy),
+    },
+
 
 
   

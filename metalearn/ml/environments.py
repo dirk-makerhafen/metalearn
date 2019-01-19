@@ -6,6 +6,9 @@ import tensorflow as tf
 
 
 class EnvironmentInstance():
+    def __init__(self, name):
+        self.name = name
+
     def initialize(self):
         pass
 
@@ -26,15 +29,15 @@ class EnvironmentInstance():
         pass
 
 
-class OpenAiEnvironmentInstance(EnvironmentInstance):
+class OpenAiGymEnvironmentInstance(EnvironmentInstance):
     def __init__(self, name):
         self.name = name
-        self.env = None
+        self.gym = None
 
     def initialize(self):
-        self.env = gym.make(self.name)
-        self.observation_space = self.env.observation_space
-        self.action_space = self.env.action_space
+        self.gym = gym.make(self.name)
+        self.observation_space = self.gym.observation_space
+        self.action_space = self.gym.action_space
         self.need_firststep = True
         self.observation = None
         self.reward = None
@@ -42,14 +45,14 @@ class OpenAiEnvironmentInstance(EnvironmentInstance):
         self.info = None
 
     def reset(self):
-        self.observation_space = self.env.observation_space
-        self.action_space = self.env.action_space
+        self.observation_space = self.gym.observation_space
+        self.action_space = self.gym.action_space
         self.need_firststep = True
         self.observation = None
         self.reward = None
         self.done = False
         self.info = None
-        self.env.reset()
+        self.gym.reset()
 
     def hasNextObservation(self):
         if self.need_firststep == True:
@@ -68,17 +71,17 @@ class OpenAiEnvironmentInstance(EnvironmentInstance):
     def runAction(self, action):
         if self.need_firststep == True:
             self.firststep()
-        self.observation, self.reward, self.done, self.info = self.env.step(action)
+        self.observation, self.reward, self.done, self.info = self.gym.step(action)
         return self.reward
 
     def firststep(self):
         self.need_firststep = False
-        self.observation = self.env.reset()
-        self.observation, self.reward, self.done, self.info = self.env.step([1])
+        self.observation = self.gym.reset()
+        self.observation, self.reward, self.done, self.info = self.gym.step([1])
     
     def close(self):
-        if self.env != None:    
-            self.env.close()
+        if self.gym != None:    
+            self.gym.close()
 
 
 def factory(_class, **args):
@@ -89,110 +92,122 @@ def factory(_class, **args):
 all_environments = {
     'Copy-v0'                 : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name = 'Copy-v0'),
+        "class": factory(OpenAiGymEnvironmentInstance, name = 'Copy-v0'),
     },
     'DuplicatedInput-v0'      : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name = 'DuplicatedInput-v0'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name = 'DuplicatedInput-v0'), 
     },
     'RepeatCopy-v0'           : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name = 'RepeatCopy-v0'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name = 'RepeatCopy-v0'), 
     } ,
     'Reverse-v0'              : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name = 'Reverse-v0'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name = 'Reverse-v0'), 
     } ,
     'ReversedAddition-v0'     : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name = 'ReversedAddition-v0'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name = 'ReversedAddition-v0'), 
     },
     'ReversedAddition3-v0'    : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name = 'ReversedAddition3-v0'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name = 'ReversedAddition3-v0'), 
     },
     'Acrobot-v1'              : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name = 'Acrobot-v1'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name = 'Acrobot-v1'), 
     },
     'CartPole-v0'             : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name =  'CartPole-v0'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'CartPole-v0'), 
     },
     'MountainCar-v0'          : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name =  'MountainCar-v0'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'MountainCar-v0'), 
     },
     'MountainCarContinuous-v0': { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name =  'MountainCarContinuous-v0'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'MountainCarContinuous-v0'), 
     },
     'Pendulum-v0'             : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name =  'Pendulum-v0'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'Pendulum-v0'), 
     },
     'Blackjack-v0'            : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name =  'Blackjack-v0'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'Blackjack-v0'), 
     },
     'FrozenLake-v0'           : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name =  'FrozenLake-v0'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'FrozenLake-v0'), 
     },
     'FrozenLake8x8-v0'        : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name =  'FrozenLake8x8-v0'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'FrozenLake8x8-v0'), 
     },
     'GuessingGame-v0'         : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name = 'GuessingGame-v0'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name = 'GuessingGame-v0'), 
     },
     'HotterColder-v0'         : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name = 'HotterColder-v0'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name = 'HotterColder-v0'), 
     },
     'NChain-v0'               : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name = 'NChain-v0'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name = 'NChain-v0'), 
     },
     'Roulette-v0'             : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name =  'Roulette-v0'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'Roulette-v0'), 
     },
     'Taxi-v2'                 : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name =  'Taxi-v2'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'Taxi-v2'), 
     },
     'BipedalWalker-v2'        : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name =  'BipedalWalker-v2'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'BipedalWalker-v2'), 
     },
     'BipedalWalkerHardcore-v2': { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name =  'BipedalWalkerHardcore-v2'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'BipedalWalkerHardcore-v2'), 
     },
     'LunarLander-v2'          : { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name =  'LunarLander-v2'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'LunarLander-v2'), 
     },
     'LunarLanderContinuous-v2': { 
         "description": "OpenAI Default Env",
-        "class": factory(OpenAiEnvironmentInstance, name =  'LunarLanderContinuous-v2'), 
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'LunarLanderContinuous-v2'), 
     }, 
 }
 
 
 all_environments = {
-    'Frostbite-v0'                 : { 
-        "description": "OpenAI Default Frostbite-v0 Env",
-        "class": factory(OpenAiEnvironmentInstance, name =  'Frostbite-v0'),
+    'Atari Frostbite-v0'                 : { 
+        "description": "Gym Atari Frostbite-v0",
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'Frostbite-v0'),
+    },
+    'Atari FreewayNoFrameskip-v4'                 : { 
+        "description": "Gym Atari FreewayNoFrameskip-v4",
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'FreewayNoFrameskip-v4'),
+    },
+    'Atari Alien-v0'                 : { 
+        "description": "Gym Atari Alien-v0",
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'Alien-v0'),
+    },
+    'Atari Pong-v0'                 : { 
+        "description": "Gym Atari Pong-v0",
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'Pong-v0'),
     },
 }
 
 
 
 '''
-class aaOpenAiEnvironmentInstance():
+class aaOpenAiGymEnvironmentInstance():
     def __init__(self, name):
         self.name = name
 

@@ -126,8 +126,6 @@ def on_Episode_done(episode_id, experiment_id, experimentSet_id):
 
     current_episode = Episode.objects.get(id=episode_id)
 
-
-    # calc fitness ranks for episode.NoisyExecution
     ids_fitnesses_timespend = current_episode.noisyExecutions.all().values_list('id',"fitness","timespend").distinct()
     fitnesses = [x[1] for x in ids_fitnesses_timespend]
     timesspend  = [x[2] for x in ids_fitnesses_timespend]
