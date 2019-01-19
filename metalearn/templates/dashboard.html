@@ -1,0 +1,242 @@
+{% extends 'adminlte/base.html' %}
+
+{% block content_header %}   
+    <style> 
+        .bootstrap-select:not([class*="col-"]):not([class*="form-control"]):not(.input-group-btn) {
+            width:100%;
+        }
+    </style>
+{% endblock %}
+
+
+{% block content %}
+
+
+<div class="row">
+    <div class="col-sm-9">
+        <div id="myDiv" style="height:900px;"></div>
+    </div>  
+    <div class="col-sm-3">
+        <div class="row">
+            X-Axis
+            <div class="col-sm-12">
+                <select class="selectpicker" multiple data-live-search="true" id="xaxisselect">
+                  
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            Y-Axis
+            <div class="col-sm-12" >
+                <select class="selectpicker" multiple data-live-search="true" id="yaxisselect">
+                  
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            Z-Axis
+            <div class="col-sm-12" >
+                <select class="selectpicker" multiple data-live-search="true" id="zaxisselect">
+                  
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            Color
+            <div class="col-sm-12">
+                <select class="selectpicker" multiple data-live-search="true" id="coloraxisselect">
+                  
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            Aggregation Axis
+            <div class="col-sm-12">
+                <select class="selectpicker" data-live-search="true"id="aggregationaxisselect">
+                  <option value="color" selected>Color</option>
+                  <option value="x">X</option>
+                  <option value="y">Y</option>
+                  <option value="z">Z</option>
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            Aggregation Function
+            <div class="col-sm-12">
+                <select class="selectpicker" data-live-search="true"id="aggregationfunctionselect">
+                  <option selected>avg</option>
+                  <option>mean</option>
+                  <option>sum</option>
+                  <option>min</option>
+                  <option>max</option>
+                  <option>count</option>
+                </select>
+            </div>
+        </div>
+        <br>
+        <button class="btn-save btn btn-primary" onClick="save()">Reload Chart</button>
+
+
+        <script>
+           var available_names = [
+                "Environment.created",
+                "Environment.name",
+                "Architecture.created",
+                "Architecture.name",
+                "Optimiser.created",
+                "Optimiser.name",
+                "ExperimentSet.id",
+                "ExperimentSet.created",
+                "ExperimentSet.name",
+                "ExperimentSet.status",
+                "ExperimentSet.max_Episodes",
+                "ExperimentSet.min_EpisodeNoisyExecutions",
+                "ExperimentSet.max_EpisodeNoisyExecutions",
+                "Experiment.id",
+                "Experiment.created",
+                "Experiment.status",
+                "Experiment.timespend",
+                "Episode.id",
+                "Episode.created",
+                "Episode.status",
+                "Episode.version",
+                "Episode.max_NoisyExecutions",
+                "Episode.timespend",
+                "Episode.fitness_min",
+                "Episode.fitness_max",
+                "Episode.fitness_avg",
+                "Episode.fitness_mean",
+                "EpisodeNoisyExecution.id",
+                "EpisodeNoisyExecution.number",
+                "EpisodeNoisyExecution.created",
+                "EpisodeNoisyExecution.status",
+                "EpisodeNoisyExecution.timespend",
+                "EpisodeNoisyExecution.fitness",
+            ]
+            var x = document.getElementById("xaxisselect");
+            var y = document.getElementById("yaxisselect");
+            var z = document.getElementById("zaxisselect");
+            var color = document.getElementById("coloraxisselect");
+            
+            for(i in available_names){  
+                var optionx = document.createElement("option");
+                var optiony = document.createElement("option");
+                var optionz = document.createElement("option");
+                var optioncolor = document.createElement("option");
+                optionx.text = available_names[i];
+                optiony.text = available_names[i];
+                optionz.text = available_names[i];
+                optioncolor.text = available_names[i];
+                x.add(optionx);
+                y.add(optiony);
+                z.add(optionz);
+                color.add(optioncolor);
+            }
+
+
+            $('select').selectpicker();
+
+        function save(){
+            var xfields = [];
+            var yfields = [];
+            var zfields = [];
+            var colorfield = "";
+            var aggregationAxis = "";
+            var aggregationFunction = "";
+            
+            $.each($("#xaxisselect option:selected"), function(){ xfields.push($(this).val());});
+            $.each($("#yaxisselect option:selected"), function(){ yfields.push($(this).val());});
+            $.each($("#zaxisselect option:selected"), function(){ zfields.push($(this).val());});
+            $.each($("#coloraxisselect option:selected"), function(){ colorfield = $(this).val();});
+            $.each($("#aggregationaxisselect option:selected"), function(){ aggregationAxis = $(this).val();});
+            $.each($("#aggregationfunctionselect option:selected"), function(){ aggregationFunction = $(this).val();});
+            var r = {
+                "axis" : {
+                    "x"     :  null ,
+                    "y"     :  null ,
+                    "z"     :  null ,
+                    "color" :  null ,
+                },
+                "aggregation": {
+                    "axis" : aggregationAxis,
+                    "type" : aggregationFunction
+                }
+            }            
+
+            if(xfields.length > 0){
+                r["axis"]["x"] = {};
+                r["axis"]["x"]["fields"] = xfields;
+            }
+            if(yfields.length > 0){
+                r["axis"]["y"] = {};
+                r["axis"]["y"]["fields"] = yfields;
+            }
+            if(zfields.length > 0){
+                r["axis"]["z"] = {};
+                r["axis"]["z"]["fields"] = zfields;
+            }
+            if(colorfield != ""){
+                r["axis"]["color"] = {};
+                r["axis"]["color"]["field"] = colorfield;
+            }    
+                    
+            loadPlot(r);
+        }
+
+        </script>
+            
+    </div>  
+</div>
+
+
+<script>
+
+    function loadPlot(settings){
+        settings = JSON.stringify(settings);
+        
+        Plotly.d3.json('http://192.168.6.241:1253/stats/' + settings, function(err, data) {
+            if(data.color.length > 0){
+                color = data.color;
+                showscale = true;
+            }else{
+                color = "red";
+                showscale = false;
+            }
+            var trace1 = {
+                x: data.x, 
+                y: data.y, 
+                z: data.z,
+                mode: 'markers',
+                marker: {
+                    size: 3,
+                    showscale: showscale,
+                    color: color,
+                    opacity: 0.7
+                },
+                type: 'scatter3d'
+            };
+
+            var traces = [ 
+                trace1,
+            ];
+
+            var layout = {
+                margin: {
+                    l: 0,
+                    r: 0,
+                    b: 0,
+                    t: 0
+                }
+            };
+
+            Plotly.newPlot('myDiv', traces, layout);
+
+        });
+
+    }
+
+
+
+</script>
+
+{% endblock %}

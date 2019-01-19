@@ -1,0 +1,37 @@
+{% load adminlte_helpers i18n %}
+<header class="main-header">
+    <!-- Logo -->
+    {% block logo %}
+    <a href="{% block logo_href %}/{% endblock %}" class="logo">
+        <!-- mini logo for sidebar mini 50x50 pixels -->
+        <span class="logo-mini">{% block logo_text_small %} <b>Meta</b>Learn {% endblock %}</span>
+        <!-- logo for regular state and mobile devices -->
+        <span class="logo-lg">{% block logo_text %} <b>Meta</b>Learn {% endblock %}</span>
+    </a>
+    {% endblock %}
+
+    <!-- Header Navbar: style can be found in header.less -->
+    {% block nav_bar %}
+    <nav class="navbar navbar-static-top">
+        <div class="navbar-custom-menu">
+            <ul class="nav navbar-nav">
+                {% block header_dropdowns %}
+                    {% if request.user.is_authenticated %}
+                        <li class="user user-menu">
+                            <a>
+                                <img src="/static/default_avatar.png" class="user-image" alt="User Image">
+                                <span class="hidden-xs">{% firstof request.user.get_short_name request.user.get_username %}</span>
+                            </a>
+                        </li>
+                        <li class="user user-menu">
+                            <a href="/logout">
+                                <span class="glyphicon glyphicon-log-out" aria-hidden="true"></span>
+                            </a>
+                        </li>                        
+                    {% endif %}
+                {% endblock header_dropdowns %}
+            </ul>
+        </div>
+    </nav>
+    {% endblock %}
+</header>

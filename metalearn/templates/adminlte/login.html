@@ -1,0 +1,32 @@
+{% extends 'adminlte/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block bodyclass %}login-page{% endblock %}
+
+{% block body %}
+
+    {% block content %}
+        <div class="login-box">
+            <div class="login-logo">
+                 <b>Meta</b>Learn 
+            </div>
+            <div class="login-box-body">
+                {% if form.non_field_errors  %}
+                    <div class="alert alert-danger">
+                        <i class="icon fa fa-ban"></i>{{ form.non_field_errors.0 }}
+                    </div>
+                {% endif %}
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form.username|as_crispy_field }}
+                    {{ form.password|as_crispy_field }}
+                    <button class="btn btn-default" type="submit">Login</button>
+                </form>
+            </div>
+        </div>
+
+    {% endblock %}
+{% endblock %}
+
+
+
