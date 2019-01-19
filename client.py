@@ -60,7 +60,6 @@ class WeightsNoiseCache():
         redisconnection.zadd("WeightsNoiseCache_ids",{ episode_id : float(time.time())})
 
         cached_ids = redisconnection.zrevrange("WeightsNoiseCache_ids", 0, -1, withscores=True)
-        print(cached_ids)
         if len(cached_ids) > 20:
             print("Cache to large")
             for cached_id in cached_ids[20:]:
@@ -74,7 +73,7 @@ class WeightsNoiseCache():
     def getCachedIds(self):
         cached_ids = redisconnection.zrevrange("WeightsNoiseCache_ids", 0, -1)
         r = [int(k) for k in cached_ids]
-        print(r)
+        #print(r)
         return r
 
 weightsNoiseCache = WeightsNoiseCache()
@@ -153,7 +152,7 @@ def run(nr_of_executions = 1):
             "steps" : steps,
             "timespend" : int(time.time() - start),
         })
-        print(results)
+        print("Result:", results)
         requests.post("%s/putResult/%s/%s" % (APIURL, noisyExecution["id"], noisyExecution["lock"]), results)
 
     if last_environment != None:

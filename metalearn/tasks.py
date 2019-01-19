@@ -76,18 +76,18 @@ def on_Experiment_created(experiment_id, experimentSet_id):
 
 @shared_task
 def on_Experiment_done(experiment_id, experimentSet_id):
-    from .models import Experiment
     from .models import ExperimentSet
+    from .models import Experiment
+    from .models import Episode
 
     experiments_to_go = Experiment.objects.filter(experimentSet_id = experimentSet_id).filter(~Q(status = "done")).count()
     if experiments_to_go > 0:
         return  
     
-    timespend = 0.0
-    for ep in Episode.objects.filter(experiment_id = experiment_id):
-        timespend += ep.timespend
+    timespends = Episode.objects.filter(experiment_id = experiment_id).values_list("timespend")
+    
     experiment = Experiment.objects.get(id=experimentSet_id)
-    experiment.timespend = timespend
+    experiment.timespend = sum(timespends)
     experiment.save()
 
     experimentSet_done = ExperimentSet.objects.filter(id = experimentSet_id).filter(~Q(status = "done")).update(status="done")
