@@ -53,7 +53,7 @@ def getEpisodeNoisyExecution(request, preferedEpisodeIds = ''):
         for episodeNoisyExecution in episodeNoisyExecutions:
             locked = models.EpisodeNoisyExecution.objects                   \
                 .filter( id = episodeNoisyExecution.id, status = "idle", )   \
-                .update(status = "active", lock = lock, client =  "some client")
+                .update(status = "locked", lock = lock, client =  "some client")
             if locked == 1:
                 episodeNoisyExecutionJson = {
                     "id"                : episodeNoisyExecution.id,
