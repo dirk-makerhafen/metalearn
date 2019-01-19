@@ -132,7 +132,10 @@ def on_Episode_done(episode_id, experiment_id, experimentSet_id):
     fitnesses = [x[1] for x in ids_fitnesses_timespend]
     timesspend  = [x[2] for x in ids_fitnesses_timespend]
 
-    ranks = ( rankdata(fitnesses, method="dense") - 1 ) / ( len(set(fitnesses)) - 1 )
+    l = ( len(set(fitnesses)) - 1 )
+    if l == 0:
+        l == 1
+    ranks = ( rankdata(fitnesses, method="dense") - 1 ) / l
     for i in range(0,len(fitnesses)):
         EpisodeNoisyExecution.objects.filter(id=ids_fitnesses_timespend[i][0]).update(fitness_rank = ranks[i])
 

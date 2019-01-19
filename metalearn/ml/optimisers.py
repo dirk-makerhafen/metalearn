@@ -38,7 +38,27 @@ def createNoise(seed, width):
     r = np.random.RandomState(seed)
     return r.randn(width).astype(np.float32)
 
+class MetaOpti():
+    def run(input):
+        pass
+'''
+input 
+    fitness
+    fitness_rank
+    steps
+    steps_rank
+    used_weights
+    last_embedding
+   
+output
+    weights 
+    noiselevels
+    factor_count
+    factor_steps
+    factor_time
+    embedding
 
+'''
 class AdamOptimizer(object):
     def __init__(self,num_params, learning_rate, beta1=0.99, beta2=0.999, epsilon=1e-08):
         self.dim = num_params
