@@ -134,7 +134,7 @@ def on_Episode_done(episode_id, experiment_id, experimentSet_id):
 
     l = ( len(set(fitnesses)) - 1 )
     if l == 0:
-        l == 1
+        l = 1
     ranks = ( rankdata(fitnesses, method="dense") - 1 ) / l
     for i in range(0,len(fitnesses)):
         EpisodeNoisyExecution.objects.filter(id=ids_fitnesses_timespend[i][0]).update(fitness_rank = ranks[i])
