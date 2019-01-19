@@ -101,7 +101,7 @@ class Architecture_ESAtariPolicy(Architecture):
     def _initialize(self):
         self.ob_space_shape = self.environment.observation_space.shape
         self.ac_space = self.environment.action_space
-        self.num_actions = ac_space.n
+        self.num_actions = self.ac_space.n
 
         with tf.variable_scope(type(self).__name__) as scope:
             o = tf.placeholder(tf.float32, [None] + list(self.ob_space_shape))
