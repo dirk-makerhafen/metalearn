@@ -40,7 +40,7 @@ class Experiment_Admin(admin.ModelAdmin):
     list_filter = ('status',)
 
 class Episode_Admin(admin.ModelAdmin):
-    list_display = ('id', "created", 'status', "version", "max_NoisyExecutions", "timespend", "fitness_min", "fitness_max", "fitness_avg", "fitness_median", "environment", "architecture", "optimiser", "experimentSet", "experiment", )
+    list_display = ('id', "created", 'status', "version", "timespend", "fitness_min", "fitness_max", "fitness_avg", "fitness_median", "environment", "architecture", "optimiser", "experimentSet", "experiment", )
     list_filter = ('status',)
 
 class ExperimentNoisyExecution_Admin(admin.ModelAdmin):

@@ -98,9 +98,14 @@ class ExperimentSet(models.Model):
 
     max_Episodes = models.BigIntegerField(default=10) #max number of episodes per experiment
 
-    min_EpisodeNoisyExecutions     = models.BigIntegerField(default=10)  # min nr of NoisyExecutions per Episode per Experiment
-    max_EpisodeNoisyExecutions     = models.BigIntegerField(default=100) # max nr of NoisyExecutions per Episode per Experiment
-
+    # actual values are selected by optimiser between min and max
+    episodeNoisyExecutions_count_min = models.BigIntegerField(default=10)  # nr of NoisyExecutions per Episode per Experiment
+    episodeNoisyExecutions_count_max = models.BigIntegerField(default=100)  # 
+    episodeNoisyExecution_timespend_min = models.BigIntegerField(default=120)  # # time per NoisyExecutions, in seconds
+    episodeNoisyExecution_timespend_max = models.BigIntegerField(default=120)  # 
+    episodeNoisyExecution_steps_min = models.BigIntegerField(default=10000)  #  steps per NoisyExecutions
+    episodeNoisyExecution_steps_max = models.BigIntegerField(default=10000)  #
+    
     #experiments -> Experiment
     
     def save(self, *args, **kwargs):
@@ -158,9 +163,10 @@ class Episode(models.Model):
 
     status  = models.CharField(max_length= 200, choices=Episode_STATUS_ENUM, default="active")
     version = models.BigIntegerField(default = 1) # set on creation of next episode via on_Episode_done 
-
-    max_NoisyExecutions      =  models.BigIntegerField(default = 0) # actual number of noisyExecutions for this episode, generated 
-    # between experimentSet.min_EpisodeNoisyExecutions and experimentSet.max_EpisodeNoisyExecutions via a factor given by the optimiser on_Experiment_created and on_Episode_done
+    episodeNoisyExecutions_count      =  models.BigIntegerField(default = 0) # actual number of noisyExecutions for this episode, generated 
+    # between experimentSet.episodeNoisyExecutions_count_min and experimentSet.episodeNoisyExecutions_count_max via a factor given by the optimiser on_Experiment_created and on_Episode_done
+    episodeNoisyExecution_timespend =  models.BigIntegerField(default = 0)
+    episodeNoisyExecution_steps     = models.BigIntegerField(default = 0)
 
     timespend    =  models.FloatField(default = 0) # sum of noisyExecutions.timespend ,  calculated on_Episode_done
     fitness_min  =  models.FloatField(default = 0) # min fitness of noisyExecutions,  calculated on_Episode_done

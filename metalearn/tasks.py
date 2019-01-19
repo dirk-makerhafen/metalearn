@@ -2,7 +2,7 @@
 from celery import shared_task
 from django.db.models import Q
 import numpy
-
+from scipy.stats import rankdata
 from .ml.optimisers import all_optimisers
 
 
@@ -16,13 +16,13 @@ def on_ExperimentSet_created(experimentSet_id):
     experimentSet = ExperimentSet.objects.get(id=experimentSet_id)
 
     for environment_set in experimentSet.environments_set.all():
-        for i in range(0,environment_set.nr_of_instances):
+        for _ in range(0,environment_set.nr_of_instances):
 
             for architecture_set in experimentSet.architectures_set.all():
-                for i in range(0,architecture_set.nr_of_instances):
+                for _ in range(0,architecture_set.nr_of_instances):
 
                     for optimiser_set in experimentSet.optimisers_set.all():
-                        for i in range(0,optimiser_set.nr_of_instances):
+                        for _ in range(0,optimiser_set.nr_of_instances):
 
                             experiment = Experiment()
                             experiment.status = "active"
@@ -64,8 +64,13 @@ def on_Experiment_created(experiment_id, experimentSet_id):
 
     # init optimiser
     optimiserInstance = all_optimisers[episode.optimiser.name ]["class"]()
-    episode.weightsNoise, episode.optimiserData, max_NoisyExecutions_factor = optimiserInstance.initialize(episode.environment, episode.architecture)            
-    episode.max_NoisyExecutions = episode.experimentSet.min_EpisodeNoisyExecutions + ( (episode.experimentSet.max_EpisodeNoisyExecutions  - episode.experimentSet.min_EpisodeNoisyExecutions ) * max_NoisyExecutions_factor)
+    episode.weightsNoise, episode.optimiserData, count_factor, timespend_factor, steps_factor = optimiserInstance.initialize(episode.environment, episode.architecture)  
+    eset = episode.experimentSet          
+    episode.episodeNoisyExecution_steps     = eset.episodeNoisyExecution_steps_min     + ( ( eset.episodeNoisyExecution_steps_max     - eset.episodeNoisyExecution_steps_min     ) * steps_factor )
+    episode.episodeNoisyExecution_timespend = eset.episodeNoisyExecution_timespend_min + ( ( eset.episodeNoisyExecution_timespend_max - eset.episodeNoisyExecution_timespend_min ) * timespend_factor )
+    episode.episodeNoisyExecutions_count    = eset.episodeNoisyExecutions_count_min    + ( ( eset.episodeNoisyExecutions_count_max    - eset.episodeNoisyExecutions_count_min    ) * count_factor )
+
+
 
     episode.save()
 
@@ -101,7 +106,7 @@ def on_Episode_created(episode_id, experiment_id, experimentSet_id):
     episode = Episode.objects.get(id=episode_id)
     count = episode.noisyExecutions.count()
 
-    for number in range(count,episode.max_NoisyExecutions):
+    for number in range(count,episode.episodeNoisyExecutions_count):
         episodeNoisyExecution = EpisodeNoisyExecution()
         episodeNoisyExecution.environment = episode.environment
         episodeNoisyExecution.architecture = episode.architecture
@@ -117,23 +122,21 @@ def on_Episode_done(episode_id, experiment_id, experimentSet_id):
     from .models import Episode
     from .models import Experiment
     from .models import ExperimentSet
+    from .models import EpisodeNoisyExecution
 
     current_episode = Episode.objects.get(id=episode_id)
 
 
     # calc fitness ranks for episode.NoisyExecution
-    rank = 0.0        
-    nr_of_noisy_executions = current_episode.noisyExecutions.count()  # 10
-    fitnesses = []
-    timespend = 0.0
-    for ex in current_episode.noisyExecutions.all().order_by('fitness'):
-        ex.fitness_rank = ( 1.0 / (nr_of_noisy_executions - 1) ) * rank
-        ex.save()
-        fitnesses.append(ex.fitness)
-        rank += 1.0
-        timespend += ex.timespend
+    ids_fitnesses_timespend = current_episode.noisyExecutions.all().values_list('id',"fitness","timespend").distinct()
+    fitnesses = [x[1] for x in ids_fitnesses_timespend]
+    timesspend  = [x[2] for x in ids_fitnesses_timespend]
 
-    current_episode.timespend   = timespend
+    ranks = ( rankdata(fitnesses, method="dense") - 1 ) / ( len(set(fitnesses)) - 1 )
+    for i in range(0,len(fitnesses)):
+        EpisodeNoisyExecution.objects.filter(id=ids_fitnesses_timespend[i][0]).update(fitness_rank = ranks[i])
+
+    current_episode.timespend   = sum(timesspend)
     current_episode.fitness_min   = min(fitnesses)
     current_episode.fitness_max   = max(fitnesses)
     current_episode.fitness_avg   = numpy.mean(fitnesses)
@@ -162,8 +165,12 @@ def on_Episode_done(episode_id, experiment_id, experimentSet_id):
 
     # run optimiser
     optimiserInstance = all_optimisers[current_episode.optimiser.name ]["class"]()
-    next_episode.weightsNoise, next_episode.optimiserData, max_NoisyExecutions_factor = optimiserInstance.optimise(current_episode)
-    next_episode.max_NoisyExecutions = next_episode.experimentSet.min_EpisodeNoisyExecutions + ( (next_episode.experimentSet.max_EpisodeNoisyExecutions  - next_episode.experimentSet.min_EpisodeNoisyExecutions ) * max_NoisyExecutions_factor)
+    next_episode.weightsNoise, next_episode.optimiserData, count_factor, timespend_factor, steps_factor = optimiserInstance.optimise(current_episode)
+
+    eset = next_episode.experimentSet          
+    next_episode.episodeNoisyExecution_steps     = eset.episodeNoisyExecution_steps_min     + ( ( eset.episodeNoisyExecution_steps_max     - eset.episodeNoisyExecution_steps_min     ) * steps_factor )
+    next_episode.episodeNoisyExecution_timespend = eset.episodeNoisyExecution_timespend_min + ( ( eset.episodeNoisyExecution_timespend_max - eset.episodeNoisyExecution_timespend_min ) * timespend_factor )
+    next_episode.episodeNoisyExecutions_count    = eset.episodeNoisyExecutions_count_min    + ( ( eset.episodeNoisyExecutions_count_max    - eset.episodeNoisyExecutions_count_min    ) * count_factor )
 
     next_episode.save()
 

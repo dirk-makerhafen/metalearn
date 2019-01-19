@@ -5,4 +5,4 @@ migrations/
 settings_local.py
 *.so
 venv
-metalearn/nn/data
+metalearn/ml/data

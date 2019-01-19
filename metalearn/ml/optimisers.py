@@ -141,17 +141,18 @@ class OptimiserOpenES:
             "subOptimizerData" : subOptimizer.toDict(),
         },2)
         
-        max_EpisodeNoisyExecutions_factor = 1
-
-        return  [ weightsNoise, optimiserData, max_EpisodeNoisyExecutions_factor]
+        # Other optimisers may changed this
+        count_factor = 1
+        timespend_factor = 1
+        steps_factor = 1
+    
+        return  [ weightsNoise, optimiserData, count_factor, timespend_factor, steps_factor]
 
     def optimise(self, episode):
         optimiserData = pickle.loads(episode.optimiserData)
         self.parameters = optimiserData["parameters"]
         subOptimizer = AdamOptimizer(self.parameters["num_params"], self.parameters["learning_rate"])
         subOptimizer.fromDict(optimiserData["subOptimizerData"])
-
-        max_EpisodeNoisyExecutions_factor = 1
 
         noisyExecutions = list(episode.noisyExecutions.all())
         reward = np.array([n.fitness for n in noisyExecutions], dtype=np.float32)
@@ -197,7 +198,12 @@ class OptimiserOpenES:
             "subOptimizerData" : subOptimizer.toDict(),
         },2)
     
-        return  [ weightsNoise, optimiserData, max_EpisodeNoisyExecutions_factor]
+        # Other optimisers may changed this
+        count_factor = 1
+        timespend_factor = 1
+        steps_factor = 1
+
+        return  [ weightsNoise, optimiserData, count_factor, timespend_factor, steps_factor]
 
 
 all_optimisers = {
