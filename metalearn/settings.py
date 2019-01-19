@@ -23,7 +23,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = '4q=18^^)q@(fa=1vb6zujwa5-ooyn00crh1*5q1_bva1pf4shh'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ["*"]
 
@@ -47,7 +47,8 @@ INSTALLED_APPS = (
 )
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
+    #'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -145,7 +146,7 @@ LOGGING = {
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
 
-LANGUAGE_CODE = 'de'
+LANGUAGE_CODE = 'en'
 
 TIME_ZONE = 'UTC'
 
@@ -162,4 +163,4 @@ CRISPY_TEMPLATE_PACK = 'bootstrap3'
 # https://docs.djangoproject.com/en/1.8/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = "%s/static" % BASE_DIR
+STATIC_ROOT = "%s/metalearn/static" % BASE_DIR

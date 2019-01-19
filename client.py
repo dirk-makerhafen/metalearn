@@ -7,6 +7,7 @@ import io
 import time
 import redis 
 import glob
+import sys
 
 from metalearn.ml import environments
 from metalearn.ml import architectures
@@ -14,8 +15,11 @@ from metalearn.ml import optimisers
 
 redisconnection = redis.StrictRedis()
 
-MAXEXECUTIONS = sys.argv[1]
-APIURL = sys.argv[2]
+APIURL = sys.argv[1]
+MAXEXECUTIONS = int(sys.argv[2])
+
+if not APIURL.lower().startswith("http"):
+    APIURL = 'http://%s' % APIURL
 
 def createNoise(seed, width):
     r = numpy.random.RandomState(seed)
@@ -27,12 +31,12 @@ class WeightsNoiseCache():
         files = glob.glob("/tmp/WeightsNoiseCache/*.cache")
         for f in files: # refresh db just in case its gone
             episode_id = f.split("/")[-1].split(".")[0]
-            redisconnection.zadd("WeightsNoiseCache_ids", { episode_id : float(time.time())}, ex=1200 )
+            redisconnection.zadd("WeightsNoiseCache_ids", { episode_id : float(time.time())})
             
     def get(self, episode_id):
         fname = "/tmp/WeightsNoiseCache/%s.cache" % episode_id
         if os.path.isfile(fname) == True:
-            redisconnection.zadd("WeightsNoiseCache_ids", { episode_id : float(time.time())}, ex=1200 )
+            redisconnection.zadd("WeightsNoiseCache_ids", { episode_id : float(time.time()) } )
             print("Episode '%s' WeightsNoise via fs cache" % episode_id)
             return numpy.load(io.BytesIO(open(fname,"rb").read()))
 
@@ -53,7 +57,7 @@ class WeightsNoiseCache():
             time.sleep(2)
             r = redisconnection.get("episode_weightsNoise_%s_dlactive" % episode_id) # evtl. some other theads does this dl
                 
-        redisconnection.zadd("WeightsNoiseCache_ids",{ episode_id : float(time.time())}, ex=1200 )
+        redisconnection.zadd("WeightsNoiseCache_ids",{ episode_id : float(time.time())})
 
         cached_ids = redisconnection.zrevrange("WeightsNoiseCache_ids", 0, -1, withscores=True)
         print(cached_ids)

@@ -30,6 +30,8 @@ EpisodeNoisyExecution_STATUS_ENUM = (("idle" , "idle"),("locked" , "locked"),("d
 
 def getNoiseSeed():
     return random.randint(0,2**31)
+def getUUID():
+    return "%s" % uuid.uuid4()
 
 
 class Environment(models.Model):

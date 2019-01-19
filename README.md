@@ -21,5 +21,5 @@ python3 manage.py runserver 1.2.3.4:1234
 
 celery -A metalearn worker -l info
 
-python3 client.py 4  1.2.3.4:1234
+python3 client.py 1.2.3.4:1234 4
 
