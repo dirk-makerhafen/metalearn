@@ -194,7 +194,7 @@
     function loadPlot(settings){
         settings = JSON.stringify(settings);
         
-        Plotly.d3.json('http://192.168.6.241:1253/stats/' + settings, function(err, data) {
+        Plotly.d3.json('/stats/' + settings, function(err, data) {
             if(data.color.length > 0){
                 color = data.color;
                 showscale = true;
