@@ -1,7 +1,7 @@
 # metalearn
 MetaLearning stuff
 
-apt-get install python3 python3-venv cmake python3-dev
+apt-get install python3 python3-venv cmake python3-dev  zlib1g-dev
 
 python3 -m venv venv
 
