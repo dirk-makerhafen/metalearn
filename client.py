@@ -31,7 +31,9 @@ class WeightsNoiseCache():
         files = glob.glob("/tmp/WeightsNoiseCache/*.cache")
         for f in files: # refresh db just in case its gone
             episode_id = f.split("/")[-1].split(".")[0]
-            redisconnection.zadd("WeightsNoiseCache_ids", { episode_id : float(time.time())})
+            if redisconnection.zrank("WeightsNoiseCache_ids", episode_id ) == None:
+                print("Cached File '%s' no longed exists in redis, deleting" % f)
+            
             
     def get(self, episode_id):
         fname = "/tmp/WeightsNoiseCache/%s.cache" % episode_id
@@ -127,7 +129,7 @@ def run(nr_of_executions = 1):
             environment = getEnvironmentInstance(noisyExecution["environment.name"])
             architecture = getArchitectureInstance(noisyExecution["architecture.name"])
             environment.initialize()
-            architecture.initialize(environment, weights_new)
+            architecture.initialize(environment.observation_space, environment.action_space, weights_new)
         
         weights_new = None # free memory 
         last_architecture = architecture

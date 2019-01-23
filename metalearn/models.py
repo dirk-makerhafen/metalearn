@@ -86,6 +86,9 @@ class ExperimentSet(models.Model):
     id       = models.BigAutoField(primary_key=True)
     created  = models.DateTimeField('created',auto_now_add=True)
     updated  = models.DateTimeField('updated',auto_now=True)  
+
+    public = models.BooleanField(default=True)  # is public via web api for clients to execute
+
     name     = models.CharField( max_length=200,default="")
     description     = models.CharField( max_length=200,default="")
     
@@ -110,7 +113,6 @@ class ExperimentSet(models.Model):
     
     def save(self, *args, **kwargs):
         isNew = self.id == None
-
         super(ExperimentSet, self).save(*args, **kwargs)      
 
         if isNew == True:
@@ -135,6 +137,8 @@ class Experiment(models.Model):
     id       = models.BigAutoField(primary_key=True)
     created  = models.DateTimeField('created',auto_now_add=True)
     updated  = models.DateTimeField('updated',auto_now=True)  
+    
+    public = models.BooleanField(default=True)  # is public via web api for clients to execute
 
     status    = models.CharField(max_length= 200, choices=Experiment_STATUS_ENUM, default="new")
     timespend =  models.FloatField(default = 0) # sum of Episode.timespend ,  calculated on_Experiment_done
@@ -149,7 +153,6 @@ class Experiment(models.Model):
 
     def save(self, *args, **kwargs):
         isNew = self.id == None
-        print("IS NEW")
         super(Experiment, self).save(*args, **kwargs)
 
         if isNew == True:
@@ -160,10 +163,12 @@ class Episode(models.Model):
     id       = models.BigAutoField(primary_key=True)
     created  = models.DateTimeField('created',auto_now_add=True)
     updated  = models.DateTimeField('updated',auto_now=True)  
+    
+    public = models.BooleanField(default=True)  # is public via web api for clients to execute
 
     status  = models.CharField(max_length= 200, choices=Episode_STATUS_ENUM, default="active")
     version = models.BigIntegerField(default = 1) # set on creation of next episode via on_Episode_done 
-    episodeNoisyExecutions_count      =  models.BigIntegerField(default = 0) # actual number of noisyExecutions for this episode, generated 
+    episodeNoisyExecutions_count      =  models.BigIntegerField(default = 0) # actual max number of noisyExecutions for this episode, generated 
     # between experimentSet.episodeNoisyExecutions_count_min and experimentSet.episodeNoisyExecutions_count_max via a factor given by the optimiser on_Experiment_created and on_Episode_done
     episodeNoisyExecution_timespend =  models.BigIntegerField(default = 0)
     episodeNoisyExecution_steps     = models.BigIntegerField(default = 0)
@@ -241,7 +246,7 @@ class EpisodeNoisyExecution(models.Model):
     lock   = models.CharField(max_length=100, default="", blank=True) # some random hash if this is locked by some client for execution, or "" if not locked
     client = models.CharField(max_length=100, default="", blank=True) # the client owning this lock, or "" if not locked or done
 
-    number = models.BigIntegerField(default = 0) # 0..N   number if exection within Episode, index  
+    number = models.BigIntegerField(default = 0) # 0..N   number of execution within Episode, index  
 
     noiseseed = models.BigIntegerField(default=getNoiseSeed) # some random integer number so noisepattern can be regenerated
 

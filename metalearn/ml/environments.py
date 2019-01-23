@@ -6,9 +6,6 @@ import tensorflow as tf
 
 
 class EnvironmentInstance():
-    def __init__(self, name):
-        self.name = name
-
     def initialize(self):
         pass
 
@@ -28,6 +25,168 @@ class EnvironmentInstance():
     def close(self):
         pass
 
+
+'''
+class MetaTrainingEnvironmentInstance():
+    def __init__(self, environment_name, arch_name):
+        self.trainenv = environment_name # some env
+        self.trainarch = arch_name # some arch_name
+
+        self.episodes = 100
+        self.episodes_done = 0
+
+        self.exec_per_episode = 300
+        self.exec_per_episode_done = 0
+
+        num_params = getNumberOfParameter(self.trainenv, self.trainarch)
+        nr_of_embeddings_optimiser = 4
+        
+        self.observation_space = spaces.Tuple((
+            spaces.Box(low=0,    high=100, shape=[ num_params, nr_of_embeddings_optimiser ]),   # Last embedding
+            spaces.Box(low=-180, high=180, shape=[ num_params, 1 ]),  # Used Weights#
+            spaces.Tuple((   # metaparameters
+                spaces.Box(low=-180, high=180, shape=1), # fitness
+                spaces.Box(low=-180, high=180, shape=1), # rank
+                spaces.Box(low=-180, high=180, shape=1), # steps
+                spaces.Box(low=-180, high=180, shape=1), # foo
+            )),
+        ))
+
+        self.action_space = spaces.Tuple((
+            spaces.Box(low=0,    high=100, shape=[ num_params, nr_of_embeddings_optimiser ]),   #new embedding
+            spaces.Box(low=-180, high=180, shape=[ num_params, 1 ]),  # new Weights
+            spaces.Box(low=-180, high=180, shape=[ num_params, 1 ]),  # new noise
+        ))
+
+        self.next_observation = (
+            np.random.randn(shape=[ num_params, nr_of_embeddings_optimiser ]),      # last embedding
+            np.random.randn(shape=[ num_params, 1 ]),        # used weights
+            (
+                0, # fitness
+                0, # rank
+                0, # steps
+                0, # foo
+            )
+        )
+        firststepdone = False
+        self.fitnesses = []
+        currentEpisode = None
+
+    def initialize(self):
+        pass
+
+    def reset(self):
+        pass
+    
+    def hasNextObservation(self):
+        return self.next_observation != None:
+            
+    def getNextObservation(self):
+        return self.next_observation
+        
+    def runAction(self, action):
+        if currentEpisode == None:
+            self.currentEpisode = Episode()
+            return 0
+
+        if currentEpisode.receivedAll == True:
+            if more_to_go :
+                self.currentEpisode = Episode()
+                set weights from action
+            return 0
+
+        if self.currentEpisode.rundone != True:
+            self.currentEpisode.runall()
+
+        for item in currentEpisode.noiseexecutions:
+            if item.received == False:  
+                item.received = True
+                self.next_observation = (
+                    action.emb,      # last embedding
+                    item.used_weights,        # used weights
+                    (
+                        item.fitness, # fitness
+                        item.rank, # rank
+                        item.steps, # steps
+                        item.foo, # foo
+                    )
+                )
+                return item.fitness
+        self.next_observation = None
+        return 0
+
+        emb ,_, _ = action
+        if firststepdone == False:  
+            firststepdone = True
+            emb ,weights, noise = action    
+            self.fitnesses = []
+
+            for j in range(self.exec_per_episode_done,self.exec_per_episode):
+                rseed = 23
+                weights_new = inputweights + np.random.randn(23)
+                fitness = run_one_turn(self, inputweights )
+                self.exec_per_episode_done += 1
+                self.fitnesses.append(fitness)
+                if self.exec_per_episode_done == self.exec_per_episode:
+                    s = sum(fitnesses)
+                    self.fitnesses = []
+                    return s
+                return 0
+            self.episodes_to_do += 1
+            self.exec_per_episode_done = 0
+            emb ,weights, noise = action    
+
+
+        return None
+
+    def run_one_turn(self, inputweights ):
+        
+        self.trainarch.initialize(environment.observation_space, environment.action_space, weights_new)
+        fitness = 0
+        while self.trainenv.hasNextObservation():
+            observation = self.trainenv.getNextObservation()
+            action = self.trainarch.run(observation)
+            fitness += self.trainenv.runAction(action) 
+            #env.env.render()
+            steps += 1
+            if steps >= noisyExecution["max_steps"]:
+                break
+            if int(time.time() - start) >= noisyExecution["max_timespend"]:
+                break
+        return fitness
+
+
+    def close(self):
+        pass
+{ 
+    'MetaTraining - Atari Frostbite-v0 - GAAtariPolicy elu' : { 
+        "description": "OpenAI Default Env",
+        "class": factory(MetaTrainingEnvironmentInstance, environment_name = 'Atari Frostbite-v0', arch_name = "GAAtariPolicy elu"),
+}
+
+class DummyEnvironmentInstance():
+    def __init__(self):
+        pass
+
+    def initialize(self):
+        pass
+
+    def reset(self):
+        pass
+    
+    def hasNextObservation(self):
+        return False
+
+    def getNextObservation(self):
+        return None
+
+    def runAction(self, action):
+        return None
+
+    def close(self):
+        pass
+
+'''
 
 class OpenAiGymEnvironmentInstance(EnvironmentInstance):
     def __init__(self, name):

@@ -36,15 +36,21 @@ def getEpisodeNoisyExecution(request, preferedEpisodeIds = ''):
 
     episodeNoisyExecutions = []
     if len(preferedEpisodeIds) > 0:
-        episodeNoisyExecutions = models.EpisodeNoisyExecution.objects           \
-            .filter(status = "idle")                            \
-            .filter(episode__status = "active")                \
-            .filter(episode__id__in = preferedEpisodeIds).order_by('number')[:3]
+        episodeNoisyExecutions = models.EpisodeNoisyExecution.objects \
+            .filter(status = "idle")                                  \
+            .filter(episode__status = "active")                       \
+            .filter(episode__public = True)                           \
+            .filter(episode_id__in = preferedEpisodeIds).order_by("number")[:5]
 
     if len(episodeNoisyExecutions) == 0:
-        episodeNoisyExecutions = models.EpisodeNoisyExecution.objects           \
-            .filter(status = "idle")                            \
-            .filter(episode__status = "active").order_by('number')[:3]
+        episodeIds = list(models.Episode.objects.filter(status = "active", public = True).values_list("id"))
+        if len(episodeIds) > 3:
+            episodeIds = random.sample(episodeIds, 3)
+        episodeNoisyExecutions = models.EpisodeNoisyExecution.objects \
+            .filter(status = "idle")                                  \
+            .filter(episode__status = "active")                       \
+            .filter(episode__public = True)                           \
+            .filter(episode_id__in = episodeIds).order_by("number")[:5]
 
     episodeNoisyExecutions = list(episodeNoisyExecutions)
 

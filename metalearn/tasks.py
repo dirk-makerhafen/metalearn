@@ -26,6 +26,7 @@ def on_ExperimentSet_created(experimentSet_id):
 
                             experiment = Experiment()
                             experiment.status = "active"
+                            experiment.public = experimentSet.public
                             experiment.experimentSet = experimentSet
                             experiment.environment  = environment_set.environment
                             experiment.architecture = architecture_set.architecture
@@ -34,7 +35,8 @@ def on_ExperimentSet_created(experimentSet_id):
 
 @shared_task
 def on_ExperimentSet_done(experimentSet_id):
-    print("onExperimentSet_done(%s)" % experimentSet_id)
+    from .models import ExperimentSet
+    from .models import Experiment
     timespend = 0.0
     for ep in Experiment.objects.filter(experimentSet_id = experimentSet_id):
         timespend += ep.timespend
@@ -61,6 +63,7 @@ def on_Experiment_created(experiment_id, experimentSet_id):
     episode.experimentSet = experiment.experimentSet
     episode.experiment = experiment
     episode.version = 1
+    episode.public = experiment.public
 
     # init optimiser
     optimiserInstance = all_optimisers[episode.optimiser.name ]["class"]()
@@ -69,8 +72,6 @@ def on_Experiment_created(experiment_id, experimentSet_id):
     episode.episodeNoisyExecution_steps     = eset.episodeNoisyExecution_steps_min     + ( ( eset.episodeNoisyExecution_steps_max     - eset.episodeNoisyExecution_steps_min     ) * steps_factor )
     episode.episodeNoisyExecution_timespend = eset.episodeNoisyExecution_timespend_min + ( ( eset.episodeNoisyExecution_timespend_max - eset.episodeNoisyExecution_timespend_min ) * timespend_factor )
     episode.episodeNoisyExecutions_count    = eset.episodeNoisyExecutions_count_min    + ( ( eset.episodeNoisyExecutions_count_max    - eset.episodeNoisyExecutions_count_min    ) * count_factor )
-
-
 
     episode.save()
 
@@ -84,9 +85,8 @@ def on_Experiment_done(experiment_id, experimentSet_id):
     if experiments_to_go > 0:
         return  
     
-    timespends = Episode.objects.filter(experiment_id = experiment_id).values_list("timespend")
-    
-    experiment = Experiment.objects.get(id=experimentSet_id)
+    timespends = Episode.objects.filter(experiment_id = experiment_id).values_list("timespend",flat=True)
+    experiment = Experiment.objects.get(id=experiment_id)
     experiment.timespend = sum(timespends)
     experiment.save()
 
@@ -94,7 +94,7 @@ def on_Experiment_done(experiment_id, experimentSet_id):
     if experimentSet_done == 1:
         on_ExperimentSet_done.delay(experimentSet_id)
 
-
+    
 
 # Episode
 
@@ -142,7 +142,7 @@ def on_Episode_done(episode_id, experiment_id, experimentSet_id):
     current_episode.fitness_max   = max(fitnesses)
     current_episode.fitness_avg   = numpy.mean(fitnesses)
     current_episode.fitness_median =  numpy.median(fitnesses)
-
+    current_episode.save()
 
     episodes_finished = Episode.objects.filter(experiment_id = experiment_id).filter(status = "done").count()
     max_Episodes = ExperimentSet.objects.get(id=experimentSet_id).max_Episodes
@@ -163,6 +163,7 @@ def on_Episode_done(episode_id, experiment_id, experimentSet_id):
     next_episode.experimentSet = current_episode.experimentSet
     next_episode.experiment = current_episode.experiment
     next_episode.version = current_episode.version + 1
+    next_episode.public = current_episode.public
 
     # run optimiser
     optimiserInstance = all_optimisers[current_episode.optimiser.name ]["class"]()
@@ -186,9 +187,10 @@ def on_NoisyExecution_created(noisyExecution_id, episode_id, experiment_id, expe
 def on_NoisyExecution_done(noisyExecution_id, episode_id, experiment_id, experimentSet_id):
     from .models import EpisodeNoisyExecution
     from .models import Episode
-
-    noisyExecutions_to_go = EpisodeNoisyExecution.objects.filter(episode_id = episode_id).filter(~Q(status = "done")).count()
-    if noisyExecutions_to_go > 0:
+    
+    episode = Episode.objects.get(id=episode_id)
+    noisyExecutions_done = EpisodeNoisyExecution.objects.filter(episode_id = episode_id).filter(status = "done").count()
+    if noisyExecutions_done < episode.episodeNoisyExecutions_count:
         return
 
     episode_done = Episode.objects.filter(id = episode_id).filter(~Q(status = "done")).update(status="done")

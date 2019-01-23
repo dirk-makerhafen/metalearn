@@ -30,13 +30,35 @@ def compute_centered_ranks(x):
   y -= .5
   return y
 
-def compute_weight_decay(weight_decay, model_param_list):
-  model_param_grid = np.array(model_param_list, dtype=np.float32)
-  return - weight_decay * np.mean(model_param_grid * model_param_grid, axis=1)
+def compute_weight_decay(weight_decay, list_of_ind_weights):
+  return - weight_decay * np.mean(numpy.square(list_of_ind_weights), axis=1)
 
 def createNoise(seed, width):
     r = np.random.RandomState(seed)
     return r.randn(width).astype(np.float32)
+
+
+def itergroups(items, group_size):
+    assert group_size >= 1
+    group = []
+    for x in items:
+        group.append(x)
+        if len(group) == group_size:
+            yield tuple(group)
+            del group[:]
+    if group:
+        yield tuple(group)
+
+# batched to save ram, weights by weights.
+def batched_weighted_sum(weights, vecs, batch_size=100):
+    total = 0.
+    num_items_summed = 0
+    for batch_weights, batch_vecs in zip(itergroups(weights, batch_size), itergroups(vecs, batch_size)):
+        assert len(batch_weights) == len(batch_vecs) <= batch_size
+        total += np.dot(np.asarray(batch_weights, dtype=np.float32), np.asarray(batch_vecs, dtype=np.float32))
+        num_items_summed += len(batch_weights)
+    return total, num_items_summed
+
 
 class MetaOpti():
     def run(input):
@@ -122,23 +144,7 @@ class BaseOptimiser():
         }
 
     def initialize(self, environment, architecture):
-        cache_key = "%s_%s.num_params" % (environment.name, architecture.name)
-        c = redisconnection.get(cache_key)
-        if c != None:
-            self.parameters["num_params"] = int(c)
-        else:
-            env = all_environments[environment.name]["class"]()
-            env.initialize()
-
-            arch = all_architectures[architecture.name]["class"]()
-            arch.initialize(env)
-        
-            self.parameters["num_params"] = arch.num_params
-            env.close()
-            arch.close()
-
-        redisconnection.set(cache_key, self.parameters["num_params"])
-        redisconnection.expire(cache_key,30)
+        self.parameters["num_params"] = self.getNrOfTrainableParameters(environment, architecture)
 
         weightsNoise = np.array([
             np.zeros(self.parameters["num_params"], dtype=np.float32),  # parameter 0 -> Weights
@@ -164,15 +170,8 @@ class BaseOptimiser():
         timespend_factor = 1
         return  [ weightsNoise, optimiserData, count_factor, timespend_factor, steps_factor ]
 
-
-class OptimiserMetaES(BaseOptimiser):
-    def __init__(self):
-        self.parameters = {
-            "num_params" : -1,              # number of model parameters
-        }
-
-    def initialize(self, environment, architecture):
-        
+    def getNrOfTrainableParameters(self, environment, architecture):
+        num_params = 0
         cache_key = "%s_%s.num_params" % (environment.name, architecture.name)
         c = redisconnection.get(cache_key)
         if c != None:
@@ -182,108 +181,18 @@ class OptimiserMetaES(BaseOptimiser):
             env.initialize()
 
             arch = all_architectures[architecture.name]["class"]()
-            arch.initialize(env)
+            arch.initialize(env.observation_space, env.action_space)
         
-            self.parameters["num_params"] = arch.num_params
+            num_params = arch.num_params
             env.close()
             arch.close()
 
-        redisconnection.set(cache_key, self.parameters["num_params"])
+        redisconnection.set(cache_key, num_params)
         redisconnection.expire(cache_key,30)
-
-        weightsNoise = np.array([
-            np.zeros(self.parameters["num_params"], dtype=np.float32),  # parameter 0 -> Weights
-            np.ones( self.parameters["num_params"], dtype=np.float32),  # parameter 1 -> Noiselevels
-        ])
-
-        # Get ExperimentSet Optimiser NoiseExecution
-        ne_arch = foo()
-        ne_env = foo()
-
-        
-
-        subOptimizer = AdamOptimizer( self.parameters["num_params"], self.parameters["learning_rate"])
-        optimiserData =  pickle.dumps({
-            "parameters": self.parameters,
-            "subOptimizerData" : subOptimizer.toDict(),
-        },2)
-        
-        # Other optimisers may changed this
-        count_factor = 1
-        timespend_factor = 1
-        steps_factor = 1
-    
-        return  [ weightsNoise, optimiserData, count_factor, timespend_factor, steps_factor]
-
-    def optimise(self, episode):
-
-        # Get ExperimentSet Optimiser NoiseExecution
-        ne_arch = foo(self.parameters["archid"])
-        ne_env  = foo(self.parameters["env"])
-        emb     = foo(self.parameters["emb"])
-        ne_arch.initialize(...)
-
-        for ne in episode.noisyExecutions.all():
-            new_weightsNoise, emb = ne_arch.run(ne.weightsNoise, emb)
+        return num_params
 
 
-        optimiserData = pickle.loads(episode.optimiserData)
-        self.parameters = optimiserData["parameters"]
-        subOptimizer = AdamOptimizer(self.parameters["num_params"], self.parameters["learning_rate"])
-        subOptimizer.fromDict(optimiserData["subOptimizerData"])
-
-        noisyExecutions = list(episode.noisyExecutions.all())
-        reward = np.array([n.fitness for n in noisyExecutions], dtype=np.float32)
-
-        noisyExecutions_noise = np.array([createNoise(n.noiseseed, self.parameters["num_params"]) for n in noisyExecutions], dtype=np.float32)
-
-        if self.parameters["rank_fitness"]:
-            reward = compute_centered_ranks(reward)
-
-        weightsNoise = episode.weightsNoise
-        weights = weightsNoise[0]
-        noiselevels = weightsNoise[1]
-
-        #if self.parameters["weight_decay"] > 0: 
-        #    used_weights = weights + noisyExecutions_noise * noiselevels
-        #    l2_decay = compute_weight_decay( self.parameters["weight_decay"], used_weights)
-        #    reward += l2_decay
-
-        idx = np.argsort(reward)[::-1]
-
-        # main bit:
-        # standardize the rewards to have a gaussian distribution
-        normalized_reward = (reward - np.mean(reward)) / np.std(reward)
-        change_mu = 1./(len(noisyExecutions)*self.parameters["sigma"])*np.dot(noisyExecutions_noise.T, normalized_reward)
-        noisyExecutions_noise = None
-
-        subOptimizer.stepsize = self.parameters["learning_rate"]
-        weights, update_ratio = subOptimizer.update(weights, -change_mu)
-
-        # adjust sigma according to the adaptive sigma calculation
-        if (self.parameters["sigma"] > self.parameters["sigma_limit"]):
-            self.parameters["sigma"] *= self.parameters["sigma_decay"]
-
-        if (self.parameters["learning_rate"] > self.parameters["learning_rate_limit"]):
-            self.parameters["learning_rate"] *= self.parameters["learning_rate_decay"]
-
-        weightsNoise = np.array([
-            weights,                        # parameter 0 -> Weights
-            [ self.parameters["sigma"], ],  # parameter 1 -> Noiselevels
-        ])
-        optimiserData = pickle.dumps({
-            "parameters": self.parameters,
-            "subOptimizerData" : subOptimizer.toDict(),
-        },2)
-    
-        # Other optimisers may changed this
-        count_factor = 1
-        timespend_factor = 1
-        steps_factor = 1
-
-        return  [ weightsNoise, optimiserData, count_factor, timespend_factor, steps_factor]
-
-
+# https://github.com/hardmaru/estool/blob/master/es.py
 class OptimiserOpenES(BaseOptimiser):
     def __init__(self):
         self.parameters = {
@@ -301,24 +210,7 @@ class OptimiserOpenES(BaseOptimiser):
         }
 
     def initialize(self, environment, architecture):
-        
-        cache_key = "%s_%s.num_params" % (environment.name, architecture.name)
-        c = redisconnection.get(cache_key)
-        if c != None:
-            self.parameters["num_params"] = int(c)
-        else:
-            env = all_environments[environment.name]["class"]()
-            env.initialize()
-
-            arch = all_architectures[architecture.name]["class"]()
-            arch.initialize(env)
-        
-            self.parameters["num_params"] = arch.num_params
-            env.close()
-            arch.close()
-
-        redisconnection.set(cache_key, self.parameters["num_params"])
-        redisconnection.expire(cache_key,30)
+        self.parameters["num_params"] = self.getNrOfTrainableParameters(environment, architecture)
 
         weightsNoise = np.array([
             np.zeros(self.parameters["num_params"], dtype=np.float32),  # parameter 0 -> Weights
@@ -341,6 +233,318 @@ class OptimiserOpenES(BaseOptimiser):
     def optimise(self, episode):
         optimiserData = pickle.loads(episode.optimiserData)
         self.parameters = optimiserData["parameters"]
+
+        # collect rewards from episoed noisyExecutions
+        noisyExecutions = list(episode.noisyExecutions.all())
+        reward = np.array([n.fitness for n in noisyExecutions], dtype=np.float32)
+
+        if self.parameters["rank_fitness"]:
+            reward = compute_centered_ranks(reward)
+
+        weightsNoise = episode.weightsNoise
+        weights = weightsNoise[0]
+        noiselevels = weightsNoise[1]
+
+        #if self.parameters["weight_decay"] > 0: 
+        #    used_weights = weights + noisyExecutions_noise * noiselevels
+        #    l2_decay = compute_weight_decay( self.parameters["weight_decay"], used_weights)
+        #    used_weights = None
+        #    reward += l2_decay
+
+        # main bit:
+
+        # standardize the rewards to have a gaussian distribution
+        normalized_reward = (reward - np.mean(reward)) / np.std(reward)
+
+        # reward * noise
+        g, _ = batched_weighted_sum(
+            normalized_reward,
+            (createNoise(n.noiseseed, self.parameters["num_params"]) for n in noisyExecutions)
+        )
+        g /= len(noisyExecutions)
+        g /= self.parameters["sigma"] # ?? this is in the online example, but may be wrong. 
+
+        # load saved sub optimiser
+        subOptimizer = AdamOptimizer(self.parameters["num_params"], self.parameters["learning_rate"])
+        subOptimizer.fromDict(optimiserData["subOptimizerData"])
+        subOptimizer.stepsize = self.parameters["learning_rate"]
+
+        # update weights
+        weights, update_ratio = subOptimizer.update(weights, -g )
+
+        # main bit done.
+
+
+        # l2coeff = 0.001
+        #weights, update_ratio = subOptimizer.update(weights, -g + l2coeff * weights) # openai/ueber
+
+        # adjust sigma according to the adaptive sigma calculation
+        if (self.parameters["sigma"] > self.parameters["sigma_limit"]):
+            self.parameters["sigma"] *= self.parameters["sigma_decay"]
+
+        if (self.parameters["learning_rate"] > self.parameters["learning_rate_limit"]):
+            self.parameters["learning_rate"] *= self.parameters["learning_rate_decay"]
+
+        weightsNoise = np.array([
+            weights,                        # parameter 0 -> Weights
+            [ self.parameters["sigma"], ],  # parameter 1 -> Noiselevels
+        ])
+        optimiserData = pickle.dumps({
+            "parameters": self.parameters,
+            "subOptimizerData" : subOptimizer.toDict(),
+        },2)
+    
+        # Other optimisers may changed this
+        count_factor = 1
+        timespend_factor = 1
+        steps_factor = 1
+
+        return  [ weightsNoise, optimiserData, count_factor, timespend_factor, steps_factor]
+
+
+class OptimiserOpenES_Bugfixed(OptimiserOpenES):
+    def optimise(self, episode):
+        optimiserData = pickle.loads(episode.optimiserData)
+        self.parameters = optimiserData["parameters"]
+
+        # collect rewards from episoed noisyExecutions
+        noisyExecutions = list(episode.noisyExecutions.all())
+        reward = np.array([n.fitness for n in noisyExecutions], dtype=np.float32)
+
+        if self.parameters["rank_fitness"]:
+            reward = compute_centered_ranks(reward)
+
+        weightsNoise = episode.weightsNoise
+        weights = weightsNoise[0]
+        noiselevels = weightsNoise[1]
+
+        #if self.parameters["weight_decay"] > 0: 
+        #    used_weights = weights + noisyExecutions_noise * noiselevels
+        #    l2_decay = compute_weight_decay( self.parameters["weight_decay"], used_weights)
+        #    used_weights = None
+        #    reward += l2_decay
+
+        # main bit:
+
+        # standardize the rewards to have a gaussian distribution
+        normalized_reward = (reward - np.mean(reward)) / np.std(reward)
+
+        # reward * noise
+        g, _ = batched_weighted_sum(
+            normalized_reward,
+            (createNoise(n.noiseseed, self.parameters["num_params"]) for n in noisyExecutions)
+        )
+        g /= len(noisyExecutions)
+        g *= self.parameters["sigma"] # BUG FIXED?
+
+        # load saved sub optimiser
+        subOptimizer = AdamOptimizer(self.parameters["num_params"], self.parameters["learning_rate"])
+        subOptimizer.fromDict(optimiserData["subOptimizerData"])
+        subOptimizer.stepsize = self.parameters["learning_rate"]
+
+        # update weights
+        weights, update_ratio = subOptimizer.update(weights, -g )
+
+        # main bit done.
+
+        # adjust sigma according to the adaptive sigma calculation
+        if (self.parameters["sigma"] > self.parameters["sigma_limit"]):
+            self.parameters["sigma"] *= self.parameters["sigma_decay"]
+
+        if (self.parameters["learning_rate"] > self.parameters["learning_rate_limit"]):
+            self.parameters["learning_rate"] *= self.parameters["learning_rate_decay"]
+
+        weightsNoise = np.array([
+            weights,                        # parameter 0 -> Weights
+            [ self.parameters["sigma"], ],  # parameter 1 -> Noiselevels
+        ])
+        optimiserData = pickle.dumps({
+            "parameters": self.parameters,
+            "subOptimizerData" : subOptimizer.toDict(),
+        },2)
+    
+        # Other optimisers may changed this
+        count_factor = 1
+        timespend_factor = 1
+        steps_factor = 1
+
+        return  [ weightsNoise, optimiserData, count_factor, timespend_factor, steps_factor]
+
+
+class OptimiserESUeber(OptimiserOpenES):
+    def optimise(self, episode):
+        optimiserData = pickle.loads(episode.optimiserData)
+        self.parameters = optimiserData["parameters"]
+
+        # collect rewards from episoed noisyExecutions
+        noisyExecutions = list(episode.noisyExecutions.all())
+        reward = np.array([n.fitness for n in noisyExecutions], dtype=np.float32)
+
+        if self.parameters["rank_fitness"]:
+            reward = compute_centered_ranks(reward)
+
+        weightsNoise = episode.weightsNoise
+        weights = weightsNoise[0]
+        noiselevels = weightsNoise[1]
+
+        # main bit:
+
+        # standardize the rewards to have a gaussian distribution
+        normalized_reward = (reward - np.mean(reward)) / np.std(reward)
+
+        # reward * noise
+        g, _ = batched_weighted_sum(
+            normalized_reward,
+            (createNoise(n.noiseseed, self.parameters["num_params"]) for n in noisyExecutions)
+        )
+        g /= len(noisyExecutions)
+
+        # load saved sub optimiser
+        subOptimizer = AdamOptimizer(self.parameters["num_params"], self.parameters["learning_rate"])
+        subOptimizer.fromDict(optimiserData["subOptimizerData"])
+        subOptimizer.stepsize = self.parameters["learning_rate"]
+
+        # update weights
+        l2coeff = 0.005
+        weights, update_ratio = subOptimizer.update(weights, -g + l2coeff * weights) # openai/ueber
+
+        # main bit done.
+
+        # adjust sigma according to the adaptive sigma calculation
+        if (self.parameters["sigma"] > self.parameters["sigma_limit"]):
+            self.parameters["sigma"] *= self.parameters["sigma_decay"]
+
+        if (self.parameters["learning_rate"] > self.parameters["learning_rate_limit"]):
+            self.parameters["learning_rate"] *= self.parameters["learning_rate_decay"]
+
+        weightsNoise = np.array([
+            weights,                        # parameter 0 -> Weights
+            [ self.parameters["sigma"], ],  # parameter 1 -> Noiselevels
+        ])
+        optimiserData = pickle.dumps({
+            "parameters": self.parameters,
+            "subOptimizerData" : subOptimizer.toDict(),
+        },2)
+    
+        # Other optimisers may changed this
+        count_factor = 1
+        timespend_factor = 1
+        steps_factor = 1
+
+        return  [ weightsNoise, optimiserData, count_factor, timespend_factor, steps_factor]
+
+
+'''
+class OptimiserMetaES(BaseOptimiser):
+    def __init__(self, nr_of_embeddings):
+        
+        self.parameters = {
+            "num_params" : -1,              # number of model parameters
+            "nr_of_embeddings" : nr_of_embeddings,  
+        }
+        # create ExperimentSet "OptimiserMetaES $nr_of_embeddings" if not exists
+
+    def _getInputOutputSpaces(self ):
+        episodeparameters = spaces.Tuple((   # metaparameters
+                spaces.Box(low=-180, high=180, shape=1), # fitness
+                spaces.Box(low=-180, high=180, shape=1), # rank
+                spaces.Box(low=-180, high=180, shape=1), # steps
+                spaces.Box(low=-180, high=180, shape=1), # foo
+            ))
+
+        input_space = spaces.Tuple((
+            spaces.Box(low=0,    high=100, shape=[ self.parameters["num_params"], self.parameters["nr_of_embeddings"] ]),   # Last embedding
+            spaces.Box(low=-180, high=180, shape=[ self.parameters["num_params"], 1 ]),  # Used Weights#
+            episodeparameters,
+        ))
+
+        output_space = spaces.Tuple((
+            spaces.Box(low=0,    high=100, shape=[ self.parameters["num_params"], self.parameters["nr_of_embeddings"] ]),   #new embedding
+            spaces.Box(low=-180, high=180, shape=[ self.parameters["num_params"], 1 ]),  # new Weights
+            spaces.Box(low=-180, high=180, shape=[ self.parameters["num_params"], 1 ]),  # new noise
+        ))   
+        return input_space, output_space
+
+    def initialize(self, environment, architecture):
+        self.parameters["num_params"] = self.getNrOfTrainableParameters(environment, architecture)
+
+        input_space, output_space = self.getInputOutputSpaces()
+
+
+        # noiseExecution = Get ExperimentSet Optimiser NoiseExecution
+        optiArch = getInstance( noiseExecution.architecture )
+
+        weightNoise = noiseExecution.episode.wn
+        optiArch.initialize(input_space, output_space, weights)
+
+        data = (
+            np.random.randn(shape=[ self.parameters["num_params"], self.parameters["nr_of_embeddings"] ]),      # last embedding
+            np.random.randn(shape=[ self.parameters["num_params"], 1 ]),        # used weights
+            (
+                0, # fitness
+                0, # rank
+                0, # steps
+                0, # foo
+            )
+        )
+
+        r = optiArch.run(data)
+       
+        new_weights = r[0]
+        new_noise = r[1]
+        new_embeddings = r[2]
+
+        optimiserData =  pickle.dumps({
+            "parameters": self.parameters,
+            "embeddings" : embeddings,
+            "NoiseExecution" : noiseExecution.id,
+        },2)
+        
+        # Other optimisers may changed this
+        count_factor = 1
+        timespend_factor = 1
+        steps_factor = 1
+    
+        return  [ weightsNoise, optimiserData, count_factor, timespend_factor, steps_factor]
+
+    def optimise(self, episode):
+        input_space, output_space = self.getInputOutputSpaces()
+
+        # noiseExecution = Get ExperimentSet Optimiser NoiseExecution via optimiserData["NoiseExecution"]
+        optiArch = getInstance( noiseExecution.architecture )
+        weight = []
+        optiArch.initialize(input_space, output_space, weight)
+        data = (
+            np.random.randn(shape=[ self.parameters["num_params"], self.parameters["nr_of_embeddings"] ]),      # last embedding
+            np.random.randn(shape=[ self.parameters["num_params"], 1 ]),        # used weights
+            (
+                0, # fitness
+                0, # rank
+                0, # steps
+                0, # foo
+            )
+        )
+
+        r = optiArch.run(data)
+       
+        new_weights = r[0]
+        new_noise = r[1]
+        new_embeddings = r[2]
+
+
+        emb = optimiserData["embeddings"]
+        for ne in episode.noisyExecutions.all():
+            data = (
+                emb,
+                ne.used_weights
+            )
+            new_data = ne_arch.run(data)
+            new_weights = new_data[0]
+            new_noise = new_data[1]
+            emb = new_data[3]
+
+        optimiserData = pickle.loads(episode.optimiserData)
+        self.parameters = optimiserData["parameters"]
         subOptimizer = AdamOptimizer(self.parameters["num_params"], self.parameters["learning_rate"])
         subOptimizer.fromDict(optimiserData["subOptimizerData"])
 
@@ -395,11 +599,21 @@ class OptimiserOpenES(BaseOptimiser):
 
         return  [ weightsNoise, optimiserData, count_factor, timespend_factor, steps_factor]
 
+'''
+
 
 all_optimisers = {
     "OpenES" : {
         "description" : "deep-neuroevolution/ES",
         "class"       : OptimiserOpenES, 
+    },
+    "OpenES_Bugfixed" : {
+        "description" : "deep-neuroevolution/ES Bugfixed",
+        "class"       : OptimiserOpenES_Bugfixed, 
+    },
+    "OpenES_Ueber" : {
+        "description" : "deep-neuroevolution/ES OpenAi/Ueber",
+        "class"       : OptimiserESUeber, 
     }
 }
 

@@ -17,11 +17,14 @@ def createNoise(seed, width):
 
 
 class Architecture():
-    def initialize(self, environment, weights = None):
+    def initialize(self, input_space, output_space, weights = None):
         print("initialize.initialize")
-        self.environment = environment
+        self.input_space = input_space
+        self.output_space = output_space
         
-        with tf.Graph().as_default():
+        self.graph = tf.Graph()
+
+        with self.graph.as_default():
         
             self.session = tf.InteractiveSession(config=tf.ConfigProto(inter_op_parallelism_threads=1, intra_op_parallelism_threads=1))
 
@@ -64,6 +67,7 @@ class Architecture():
     
     def close(self):
         self.session.close()
+        tf.reset_default_graph()
 
 
 class Architecture_GAAtariPolicy(Architecture):
@@ -72,8 +76,8 @@ class Architecture_GAAtariPolicy(Architecture):
 
     def _initialize(self):
         print("Architecture_GAAtariPolicy._initialize")
-        self.ob_space_shape = self.environment.observation_space.shape
-        self.ac_space = self.environment.action_space
+        self.ob_space_shape = self.input_space.shape
+        self.ac_space = self.output_space
         self.ac_init_std = 0.1
         self.num_actions = self.ac_space.n
         self.nonlin = {'tanh': tf.tanh, 'relu': tf.nn.relu, 'lrelu': tf_util.lrelu, 'elu': tf.nn.elu}[self.nonlin_type]
@@ -99,8 +103,8 @@ class Architecture_GAAtariPolicy(Architecture):
 
 class Architecture_ESAtariPolicy(Architecture):
     def _initialize(self):
-        self.ob_space_shape = self.environment.observation_space.shape
-        self.ac_space = self.environment.action_space
+        self.ob_space_shape = self.input_space.shape
+        self.ac_space = self.output_space
         self.num_actions = self.ac_space.n
 
         with tf.variable_scope(type(self).__name__) as scope:
@@ -118,7 +122,7 @@ class Architecture_ESAtariPolicy(Architecture):
             a = tf.argmax(x,1)
 
             self._run = tf_util.function([o] , a)
-        return scope
+            return scope
 
 
 class Architecture_MujocoPolicy(Architecture):
@@ -127,8 +131,8 @@ class Architecture_MujocoPolicy(Architecture):
         self.hidden_dims = hidden_dims
 
     def _initialize(self ):
-        self.ob_space_shape = self.environment.observation_space.shape
-        self.ac_space = self.environment.action_space
+        self.ob_space_shape = self.input_space.shape
+        self.ac_space = self.output_space
         self.nonlin = {'tanh': tf.tanh, 'relu': tf.nn.relu, 'lrelu': tf_util.lrelu, 'elu': tf.nn.elu}[nonlin_type]
 
         assert len(self.ob_space_shape) == len(self.ac_space.shape) == 1
@@ -148,9 +152,36 @@ class Architecture_MujocoPolicy(Architecture):
             a = tf_util.dense(x, adim, 'out', tf_util.normc_initializer(0.01))
 
             self._run = tf_util.function([o], a)
-        return scope
+            return scope
 
 
+'''
+class Architecture_MetaES(Architecture):
+
+    def _initialize(self ):
+        self.ob_space_shape = self.input_space.shape
+        self.ac_space = self.output_space
+        self.nonlin = {'tanh': tf.tanh, 'relu': tf.nn.relu, 'lrelu': tf_util.lrelu, 'elu': tf.nn.elu}["tanh"]
+
+        assert len(self.ob_space_shape) == len(self.ac_space.shape) == 1
+        assert np.all(np.isfinite(self.ac_space.low)) and np.all(np.isfinite(self.ac_space.high)),'Action bounds required'
+
+        with tf.variable_scope(type(self).__name__) as scope:
+            # Policy network
+            o = tf.placeholder(tf.float32, [None] + list(self.ob_space_shape))
+            o = tf.clip_by_value((o - ob_mean) / ob_std, -5.0, 5.0)
+
+            x = o
+            for ilayer, hd in enumerate(self.hidden_dims):
+                x = self.nonlin(tf_util.dense(x, hd, 'l{}'.format(ilayer), tf_util.normc_initializer(1.0)))
+
+            adim, ahigh, alow = self.ac_space.shape[0], self.ac_space.high, self.ac_space.low # Map to action
+
+            a = tf_util.dense(x, adim, 'out', tf_util.normc_initializer(0.01))
+
+            self._run = tf_util.function([o], a)
+            return scope
+'''
 
 def factory(_class, **args):
     def f():
