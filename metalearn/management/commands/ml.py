@@ -63,7 +63,7 @@ class Command(BaseCommand):
     def handle_storage(self, *args, **options):
         
         paths_fs = set(glob.glob("metalearn/ml/data/set_*/exp_*/ep_*/"))
-        paths_db_hasFolder = set([])
+        paths_db_hasFolder = []
         path_to_id = {}
         #print(paths_fs)
         #print(paths_db_hasFolder)
@@ -75,7 +75,7 @@ class Command(BaseCommand):
             for row in rows:
                 path_to_id["metalearn/ml/data/set_%s/exp_%s/ep_%s/" % (row[0], row[1], row[2])] = row[3]
                 paths_db_hasFolder.append("metalearn/ml/data/set_%s/exp_%s/ep_%s/" % (row[0], row[1], row[2]))
-        
+        paths_db_hasFolder = set(paths_db_hasFolder)
         missing_in_fs = paths_db_hasFolder - paths_fs
         should_not_be_in_fs = paths_fs - paths_db_hasFolder
 
