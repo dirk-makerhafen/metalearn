@@ -175,7 +175,7 @@ class BaseOptimiser():
         cache_key = "%s_%s.num_params" % (environment.name, architecture.name)
         c = redisconnection.get(cache_key)
         if c != None:
-            self.parameters["num_params"] = int(c)
+            num_params = int(c)
         else:
             env = all_environments[environment.name]["class"]()
             env.initialize()
@@ -186,6 +186,9 @@ class BaseOptimiser():
             num_params = arch.num_params
             env.close()
             arch.close()
+
+        if num_params < 1:
+            raise Exception("Failed to get number of trainable parameters for arch '%s'  env '%s'" % (architecture.name, environment.name))
 
         redisconnection.set(cache_key, num_params)
         redisconnection.expire(cache_key,30)
@@ -303,6 +306,9 @@ class OptimiserOpenES(BaseOptimiser):
 
 
 class OptimiserOpenES_Bugfixed(OptimiserOpenES):
+    def __init__(self, *args, **kwargs):
+        super(OptimiserOpenES_Bugfixed, self).__init__(*args, **kwargs)
+
     def optimise(self, episode):
         optimiserData = pickle.loads(episode.optimiserData)
         self.parameters = optimiserData["parameters"]
@@ -372,6 +378,10 @@ class OptimiserOpenES_Bugfixed(OptimiserOpenES):
 
 
 class OptimiserESUeber(OptimiserOpenES):
+
+    def __init__(self, *args, **kwargs):
+        super(OptimiserESUeber, self).__init__(*args, **kwargs)
+
     def optimise(self, episode):
         optimiserData = pickle.loads(episode.optimiserData)
         self.parameters = optimiserData["parameters"]
