@@ -19,6 +19,7 @@ from metalearn.ml import optimisers
 
 try:
     redisconnection = redis.StrictRedis(unix_socket_path='/var/run/redis/redis.sock', db=8)
+    redisconnection.get("__test")
 except:
     redisconnection = redis.StrictRedis(db=8)
 

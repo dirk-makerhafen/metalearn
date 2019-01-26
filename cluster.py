@@ -84,7 +84,7 @@ def remotecmd(shellscript, cluster_node):
     outputfile = "/tmp/tmp_123"
 
     sshcmd += "ssh -p %s %s@%s 1>'%s' 2>&1 << EOF\n" % ( cluster_node["port"], cluster_node["username"], cluster_node["host"] , outputfile)
-    sshcmd += cluster_node["pre"]
+    sshcmd += cluster_node["pre"] 
     sshcmd += "\necho __FIRSTLINE__\n"
     sshcmd += shellscript 
     sshcmd += "\necho __LASTLINE__\n"
@@ -93,7 +93,7 @@ def remotecmd(shellscript, cluster_node):
 
     output = None
     if os.path.isfile(outputfile):
-        output = open(outputfile,"r").read().split("__LASTLINE__")[0].split("__FIRSTLINE__")[-1]
+        output = open(outputfile,"r").read().split("__LASTLINE__")[0].split("__FIRSTLINE__")[-1] #bad
         print("HOST: %s@%s" % (cluster_node["username"], cluster_node["host"] ))
         print(output)
     else:
