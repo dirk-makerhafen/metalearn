@@ -277,10 +277,6 @@ class OptimiserOpenES(BaseOptimiser):
 
         # main bit done.
 
-
-        # l2coeff = 0.001
-        #weights, update_ratio = subOptimizer.update(weights, -g + l2coeff * weights) # openai/ueber
-
         # adjust sigma according to the adaptive sigma calculation
         if (self.parameters["sigma"] > self.parameters["sigma_limit"]):
             self.parameters["sigma"] *= self.parameters["sigma_decay"]
@@ -323,12 +319,6 @@ class OptimiserOpenES_Bugfixed(OptimiserOpenES):
         weightsNoise = episode.weightsNoise
         weights = weightsNoise[0]
         noiselevels = weightsNoise[1]
-
-        #if self.parameters["weight_decay"] > 0: 
-        #    used_weights = weights + noisyExecutions_noise * noiselevels
-        #    l2_decay = compute_weight_decay( self.parameters["weight_decay"], used_weights)
-        #    used_weights = None
-        #    reward += l2_decay
 
         # main bit:
 

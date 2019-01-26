@@ -8,6 +8,10 @@ import time
 import redis 
 import glob
 import sys
+import threading
+import multiprocessing
+import signal
+
 
 from metalearn.ml import environments
 from metalearn.ml import architectures
@@ -15,11 +19,32 @@ from metalearn.ml import optimisers
 
 redisconnection = redis.StrictRedis()
 
-APIURL = sys.argv[1]
-MAXEXECUTIONS = int(sys.argv[2])
 
-if not APIURL.lower().startswith("http"):
-    APIURL = 'http://%s' % APIURL
+
+
+
+try:
+    ARG = sys.argv[1]
+    if ARG in ["daemon", "run"]:
+        URL = sys.argv[2]
+        CNT  = int(sys.argv[3])
+
+        if not URL.lower().startswith("http"):
+            URL = 'http://%s' % URL
+
+        if ARG == "daemon" and CNT == 0:
+            CNT = multiprocessing.cpu_count()
+except:
+    print('''
+        client.py daemon url cores                  # run as daemon
+        client.py run    url nr_of_executions       # called by daemon
+        client.py stop                              # stop all active clients
+        client.py status                            # show nr of active daemon/workers
+    ''')
+    exit(1)
+
+ACTIVE = True
+threads = []
 
 def createNoise(seed, width):
     r = numpy.random.RandomState(seed)
@@ -46,11 +71,14 @@ class WeightsNoiseCache():
         if r == True:
             print("Download Episode WeightsNoise '%s' via web" % episode_id)
             try:
-                weightsNoiseData = requests.get("%s/getEpisodeWeightNoise/%s" % ( APIURL, episode_id ) ).content
+                weightsNoiseData = requests.get("%s/getEpisodeWeightNoise/%s" % ( URL, episode_id ) ).content
             except Exception as e:
                 print(e)    
                 return None
-            open(fname,"wb").write(weightsNoiseData)
+            f = open(fname,"wb")
+            f.write(weightsNoiseData)
+            f.flush()
+            f.close()
             redisconnection.delete("episode_weightsNoise_%s_dlactive" % episode_id)
 
         r = redisconnection.get("episode_weightsNoise_%s_dlactive" % episode_id) # evtl. some other theads does this dl
@@ -80,37 +108,45 @@ class WeightsNoiseCache():
 
 weightsNoiseCache = WeightsNoiseCache()
 
-
 def getNextEpisodeNoisyExecution():
-    noisyExecution = requests.get("%s/getEpisodeNoisyExecution/%s" % (APIURL, ",".join(["%s"%x for x in weightsNoiseCache.getCachedIds()]))).text
-    return json.loads(noisyExecution)
+    try:
+        noisyExecution = requests.get("%s/getEpisodeNoisyExecution/%s" % (URL, ",".join(["%s"%x for x in weightsNoiseCache.getCachedIds()]))).text
+        r = json.loads(noisyExecution)
+        return r
+    except Exception as e:
+        print("Failed to receive next: %s " % e)
+    return None
     
+
 def getEnvironmentInstance(name):
     return environments.all_environments[name]["class"]()
 
 def getArchitectureInstance(name):
     return architectures.all_architectures[name]["class"]()
 
-def run(nr_of_executions = 1):
-    
+def run():
+    global CNT
+
     # for speedup so we don't have to initialize every time
     last_environment = None
     last_architecture = None
     last_envarchkey = ""
 
-    for _ in range(nr_of_executions):
+    while CNT > 0:
+        
         noisyExecution = getNextEpisodeNoisyExecution()
         if noisyExecution == None:
             print("Nothing to do, waiting")
-            time.sleep(10)
+            time.sleep(5)
             continue
 
+        CNT -= 1
         start = time.time()
 
         weightsNoise = weightsNoiseCache.get(noisyExecution["episode.id"])  # [0] -> Weights , [1] -> NoiseLevels
         weights_new = weightsNoise[0] + (weightsNoise[1] * createNoise(noisyExecution["noiseseed"], len(weightsNoise[0] ) ) )
 
-        weightsNoise = None # free memory 
+        weightsNoise = None # speedup memory free
 
         envarchkey = noisyExecution["environment.name"] + "__" + noisyExecution["architecture.name"]
         if envarchkey == last_envarchkey: # use last used arch/env
@@ -149,18 +185,80 @@ def run(nr_of_executions = 1):
             if int(time.time() - start) >= noisyExecution["max_timespend"]:
                 break
         
+        ts =  int(time.time() - start)
         results = json.dumps({
             "fitness" : fitness,
             "steps" : steps,
-            "timespend" : int(time.time() - start),
+            "timespend" : ts,
         })
-        print("Result:", results)
-        requests.post("%s/putResult/%s/%s" % (APIURL, noisyExecution["id"], noisyExecution["lock"]), results)
+        print("%s  |  %s  | Steps: %s \tTime: %s \tFitness: %s" % (noisyExecution["environment.name"], noisyExecution["architecture.name"],  steps, fitness, ts))
+        requests.post("%s/putResult/%s/%s" % (URL, noisyExecution["id"], noisyExecution["lock"]), results)
 
     if last_environment != None:
         last_environment.close()
     if last_architecture != None:
         last_architecture.close()     
-  
-run(MAXEXECUTIONS)
+
+
+def daemonThread(): 
+    global ACTIVE
+    print("Starting Thread")
+    while ACTIVE == True:
+        os.system("nice -n 5 python3 client.py run '%s' 200" % URL)
+    print("Exiting Thread")
+
+def stop():
+    global ACTIVE
+    ACTIVE = False
+    print("Stoping now, this may take some time to wait for jobs to finish")
+    for t in threads:
+        t.join()
+    print("All stopped, you may exit now")
+
+def start():
+    for _ in range(0, CNT):
+        t = threading.Thread(target=daemonThread)
+        t.start()
+        threads.append(t)
+
+
+def on_sigterm(signum, frame):
+    global CNT
+    global ACTIVE
+    global ARG
+    print("Received SIGTERM/SIGINT")
+    CNT = 0
+    ACTIVE = False
+    if ARG == "daemon":
+        os.system("ps x | grep 'python3 client.py run http' | grep -v grep | grep -v nice | cut -dp -f1 | xargs kill")
+        stop()
+        exit(0)
+
+
+signal.signal(signal.SIGINT, on_sigterm)
+signal.signal(signal.SIGTERM, on_sigterm)
+
+
+if ARG == "daemon":
+    print("use 'stop()' to stop and exit.")
+    start()
+
+elif ARG == "run":
+    run()
+elif ARG == "status":
+    print("Daemon Active:")
+    os.system("ps x | grep 'python3 client.py daemon http' | grep -v grep | grep -v nice | wc -l")
+    print("Workers Active:")
+    os.system("ps x | grep 'python3 client.py run http' | grep -v grep | grep -v nice | wc -l")
+
+
+elif ARG == "stop":
+    os.system("ps x | grep 'python3 client.py daemon http' | grep -v grep | grep -v nice | cut -dp -f1 | xargs kill")
+    os.system("ps x | grep 'python3 client.py run http' | grep -v grep | grep -v nice | cut -dp -f1 | xargs kill")
+
+else:
+    print("unknown arg '%s'" % ARG)
+    exit(1)
+
+ 
 

@@ -44,5 +44,8 @@ celery -A metalearn worker -l info
 
 Client:
 
-python3 client.py 1.2.3.4:1234 4
+python3 client.py daemon 1.2.3.4:1234 0  # mode, url, cores
+    # 0 cores = auto
+python3 client.py run    1.2.3.4:1234 1  # mode, url, nr_of_execution 
+
 
