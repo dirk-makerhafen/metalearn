@@ -57,12 +57,13 @@ class WeightsNoiseCache():
     def __init__(self):
         os.system("mkdir /tmp/WeightsNoiseCache/ 2>/dev/null")
         files = glob.glob("/tmp/WeightsNoiseCache/*.cache")
+
         for f in files: # refresh db just in case its gone
-            episode_id = f.split("/")[-1].split(".")[0]
+            episode_id = int(f.split("/")[-1].split(".")[0])
             if redisconnection.zrank("WeightsNoiseCache_ids", episode_id ) == None:
                 print("Cached File '%s' no longed exists in redis, deleting" % f)
-            
-            
+                os.system("rm '/tmp/WeightsNoiseCache/%s.cache'" % episode_id)
+    
     def get(self, episode_id):
         fname = "/tmp/WeightsNoiseCache/%s.cache" % episode_id
         if os.path.isfile(fname) == True:
