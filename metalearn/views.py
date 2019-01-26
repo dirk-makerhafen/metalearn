@@ -29,7 +29,8 @@ def dashboard(request):
 def getEpisodeNoisyExecution(request, preferedEpisodeIds = ''):
     if preferedEpisodeIds != "":
         preferedEpisodeIds = [int(x) for x in preferedEpisodeIds.split(",")]
-    
+
+    client_ip = request.META.get('REMOTE_ADDR')
     lock = "%s" % uuid.uuid4()
 
     locked = 0
@@ -59,7 +60,7 @@ def getEpisodeNoisyExecution(request, preferedEpisodeIds = ''):
         for episodeNoisyExecution in episodeNoisyExecutions:
             locked = models.EpisodeNoisyExecution.objects                   \
                 .filter( id = episodeNoisyExecution.id, status = "idle", )   \
-                .update(status = "locked", lock = lock, client =  "some client")
+                .update(status = "locked", lock = lock, client =  client_ip)
             if locked == 1:
                 episodeNoisyExecutionJson = {
                     "lock"              : lock,

@@ -195,7 +195,7 @@ def run():
             "steps" : steps,
             "timespend" : ts,
         })
-        print("%s  |  %s  | Steps: %s \tTime: %s \tFitness: %s" % (noisyExecution["environment.name"], noisyExecution["architecture.name"],  steps, fitness, ts))
+        print("%s  |  %s  | Steps: %s \tTime: %s \tFitness: %s" % (noisyExecution["environment.name"], noisyExecution["architecture.name"],  steps, ts, fitness))
 
         while CNT > 0:
             try:
