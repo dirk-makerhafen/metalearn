@@ -234,7 +234,7 @@ def on_sigterm(signum, frame):
     CNT = 0
     ACTIVE = False
     if ARG == "daemon":
-        os.system("ps x | grep 'python3 client.py run http' | grep -v grep | grep -v nice | cut -dp -f1 | xargs kill")
+        os.system("ps x | grep 'python3 client.py run ' | grep -v grep | grep -v nice | cut -dp -f1 | xargs kill")
         stop()
         exit(0)
 
@@ -251,14 +251,14 @@ elif ARG == "run":
     run()
 elif ARG == "status":
     print("Daemon Active:")
-    os.system("ps x | grep 'python3 client.py daemon http' | grep -v grep | grep -v nice | wc -l")
+    os.system("ps x | grep 'python3 client.py daemon ' | grep -v grep | grep -v nice | wc -l")
     print("Workers Active:")
-    os.system("ps x | grep 'python3 client.py run http'    | grep -v grep | grep -v nice | wc -l")
+    os.system("ps x | grep 'python3 client.py run '    | grep -v grep | grep -v nice | wc -l")
 
 
 elif ARG == "stop":
-    os.system("ps x | grep 'python3 client.py daemon http' | grep -v grep | grep -v nice | cut -dp -f1 | cut -d? -f1| xargs kill")
-    os.system("ps x | grep 'python3 client.py run http'    | grep -v grep | grep -v nice | cut -dp -f1 | cut -d? -f1| xargs kill")
+    os.system("ps x | grep 'python3 client.py daemon ' | grep -v grep | grep -v nice | cut -dp -f1 | cut -d? -f1| xargs kill")
+    os.system("ps x | grep 'python3 client.py run '    | grep -v grep | grep -v nice | cut -dp -f1 | cut -d? -f1| xargs kill")
 
 else:
     print("unknown arg '%s'" % ARG)
