@@ -15,6 +15,7 @@ from django.db import transaction
 from django.db import connection
 from django.db import models
 from django.db.models import F, Q
+from django.db.transaction import on_commit
 from django.utils import timezone
 
 from . import  tasks
@@ -115,10 +116,9 @@ class ExperimentSet(models.Model):
         isNew = self.id == None
         super(ExperimentSet, self).save(*args, **kwargs)      
 
-        transaction.commit()
-
         if isNew == True:
-            tasks.on_ExperimentSet_created.delay(self.id)
+            on_commit(lambda: tasks.on_ExperimentSet_created.delay(self.id))
+            
         
 
 class ExperimentSetToEnvironment(models.Model):
@@ -157,10 +157,8 @@ class Experiment(models.Model):
         isNew = self.id == None
         super(Experiment, self).save(*args, **kwargs)
 
-        transaction.commit()
-
         if isNew == True:
-            tasks.on_Experiment_created.delay(self.id, self.experimentSet.id)
+            on_commit(lambda: tasks.on_Experiment_created.delay(self.id, self.experimentSet.id))
         
               
 class Episode(models.Model):
@@ -237,10 +235,8 @@ class Episode(models.Model):
 
         super(Episode, self).save(*args, **kwargs)
 
-        transaction.commit()
-
         if isNew == True:
-            tasks.on_Episode_created.delay(self.id, self.experiment.id, self.experimentSet.id)
+            on_commit(lambda: tasks.on_Episode_created.delay(self.id, self.experiment.id, self.experimentSet.id))
 
 
 class EpisodeNoisyExecution(models.Model):
@@ -274,10 +270,8 @@ class EpisodeNoisyExecution(models.Model):
 
         super(EpisodeNoisyExecution, self).save(*args, **kwargs)
         
-        transaction.commit()
-
         #if isNew == True:
-        #    tasks.on_EpisodeNoisyExecution_created.delay(self.id, self.episode.id, self.experiment.id, self.experimentSet.id)
+        #    on_commit(lambda: tasks.on_EpisodeNoisyExecution_created.delay(self.id, self.episode.id, self.experiment.id, self.experimentSet.id))
         
 
     def setResult(self, data):
@@ -288,6 +282,6 @@ class EpisodeNoisyExecution(models.Model):
         self.status = "done"
         self.save()
 
-        tasks.on_NoisyExecution_done.delay(self.id, self.episode.id, self.experiment.id, self.experimentSet.id)
+        on_commit(lambda: tasks.on_NoisyExecution_done.delay(self.id, self.episode.id, self.experiment.id, self.experimentSet.id))
 
 
