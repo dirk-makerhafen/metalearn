@@ -288,8 +288,6 @@ class EpisodeNoisyExecution(models.Model):
         self.status = "done"
         self.save()
 
-        transaction.commit()
-
         tasks.on_NoisyExecution_done.delay(self.id, self.episode.id, self.experiment.id, self.experimentSet.id)
 
 
