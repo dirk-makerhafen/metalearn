@@ -394,7 +394,7 @@ class OptimiserESUeber(OptimiserOpenES):
 
         # reward * noise
         g, _ = batched_weighted_sum(
-            normalized_reward,
+            reward,
             (createNoise(n.noiseseed, self.parameters["num_params"]) for n in noisyExecutions)
         )
         g /= len(noisyExecutions)
