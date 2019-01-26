@@ -361,6 +361,10 @@ all_environments = {
         "description": "Gym Atari Pong-v0",
         "class": factory(OpenAiGymEnvironmentInstance, name =  'Pong-v0'),
     },
+    'Atari Gravitar-v0'                 : { 
+        "description": "Gym Atari Gravitar-v0",
+        "class": factory(OpenAiGymEnvironmentInstance, name =  'Gravitar-v0'),
+    },
 }
 
 
