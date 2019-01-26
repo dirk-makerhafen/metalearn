@@ -14,13 +14,8 @@ def on_ExperimentSet_created(experimentSet_id):
     from .models import ExperimentSet
     from .models import Experiment
 
-    for _ in range(10):
-        try:
-            experimentSet = ExperimentSet.objects.get(id=experimentSet_id) # because autocommit..
-            break
-        except: 
-            time.sleep(2)
-
+    experimentSet = ExperimentSet.objects.get(id=experimentSet_id) # because autocommit..
+    
     for environment_set in experimentSet.environments_set.all():
         for _ in range(0,environment_set.nr_of_instances):
 
@@ -58,12 +53,7 @@ def on_Experiment_created(experiment_id, experimentSet_id):
     from .models import Experiment
     from .models import Episode
 
-    for _ in range(10):
-        try:
-            experiment = Experiment.objects.get(id=experiment_id)
-            break
-        except: 
-            time.sleep(2)
+    experiment = Experiment.objects.get(id=experiment_id)
 
     # create first episode
 
@@ -114,12 +104,7 @@ def on_Episode_created(episode_id, experiment_id, experimentSet_id):
     from .models import Episode
     from .models import EpisodeNoisyExecution
 
-    for _ in range(10):
-        try:
-            episode = Episode.objects.get(id=episode_id)
-            break
-        except: 
-            time.sleep(2)
+    episode = Episode.objects.get(id=episode_id)
 
     count = episode.noisyExecutions.count()
 

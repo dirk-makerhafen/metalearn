@@ -53,7 +53,7 @@ def itergroups(items, group_size):
         yield tuple(group)
 
 # batched to save ram, weights by weights.
-def batched_weighted_sum(weights, vecs, batch_size=100):
+def batched_weighted_sum(weights, vecs, batch_size=200):
     total = 0.
     num_items_summed = 0
     for batch_weights, batch_vecs in zip(itergroups(weights, batch_size), itergroups(vecs, batch_size)):
@@ -392,9 +392,6 @@ class OptimiserESUeber(OptimiserOpenES):
 
         # main bit:
 
-        # standardize the rewards to have a gaussian distribution
-        normalized_reward = (reward - np.mean(reward)) / np.std(reward)
-
         # reward * noise
         g, _ = batched_weighted_sum(
             normalized_reward,
@@ -511,6 +508,9 @@ class OptimiserMetaES(BaseOptimiser):
         return  [ weightsNoise, optimiserData, count_factor, timespend_factor, steps_factor]
 
     def optimise(self, episode):
+        optimiserData = pickle.loads(episode.optimiserData)
+        self.parameters = optimiserData["parameters"]
+
         input_space, output_space = self.getInputOutputSpaces()
 
         # noiseExecution = Get ExperimentSet Optimiser NoiseExecution via optimiserData["NoiseExecution"]
@@ -601,7 +601,6 @@ class OptimiserMetaES(BaseOptimiser):
         steps_factor = 1
 
         return  [ weightsNoise, optimiserData, count_factor, timespend_factor, steps_factor]
-
 '''
 
 
