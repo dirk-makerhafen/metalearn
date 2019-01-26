@@ -17,8 +17,10 @@ from metalearn.ml import environments
 from metalearn.ml import architectures
 from metalearn.ml import optimisers
 
-redisconnection = redis.StrictRedis()
-
+try:
+    redisconnection = redis.StrictRedis(unix_socket_path='/var/run/redis/redis.sock', db=8)
+except:
+    redisconnection = redis.StrictRedis(db=8)
 
 
 

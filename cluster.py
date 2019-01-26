@@ -12,7 +12,7 @@ class remote_scripts():
           cd %(remote_dir)s
           source venv/bin/activate
           echo starting daemon
-          nohup python3 client.py daemon "%(master_url)s" 0 & 
+          nohup python3 client.py daemon "%(master_url)s" 0   1>/dev/null 2>&1 & 
         fi
     '''
 
@@ -93,7 +93,7 @@ def remotecmd(shellscript, cluster_node):
 
     output = None
     if os.path.isfile(outputfile):
-        output = open(outputfile,"r").read().split("__LASTLINE__")[0].split("__FIRSTLINE__")[1]
+        output = open(outputfile,"r").read().split("__LASTLINE__")[0].split("__FIRSTLINE__")[-1]
         print("HOST: %s@%s" % (cluster_node["username"], cluster_node["host"] ))
         print(output)
     else:

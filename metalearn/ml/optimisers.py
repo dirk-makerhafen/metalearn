@@ -6,8 +6,10 @@ import pickle
 from .environments import all_environments
 from .architectures import all_architectures
 
-redisconnection = redis.StrictRedis(unix_socket_path='/var/run/redis/redis.sock', db=8)
-
+try:
+    redisconnection = redis.StrictRedis(unix_socket_path='/var/run/redis/redis.sock', db=8)
+except:
+    redisconnection = redis.StrictRedis(db=8)
 
 
 def compute_ranks(x):
