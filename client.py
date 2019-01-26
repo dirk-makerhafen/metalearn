@@ -144,7 +144,6 @@ def run():
             time.sleep(5)
             continue
 
-        CNT -= 1
         start = time.time()
 
         weightsNoise = weightsNoiseCache.get(noisyExecution["episode.id"])  # [0] -> Weights , [1] -> NoiseLevels
@@ -204,6 +203,7 @@ def run():
             except:
                 print("Failed to post result, trying again")
                 time.sleep(5)
+        CNT -= 1
 
     if last_environment != None:
         last_environment.close()
