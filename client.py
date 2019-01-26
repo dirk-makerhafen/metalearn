@@ -196,7 +196,14 @@ def run():
             "timespend" : ts,
         })
         print("%s  |  %s  | Steps: %s \tTime: %s \tFitness: %s" % (noisyExecution["environment.name"], noisyExecution["architecture.name"],  steps, fitness, ts))
-        requests.post("%s/putResult/%s/%s" % (URL, noisyExecution["id"], noisyExecution["lock"]), results)
+
+        while CNT > 0:
+            try:
+                requests.post("%s/putResult/%s/%s" % (URL, noisyExecution["id"], noisyExecution["lock"]), results)
+                break
+            except:
+                print("Failed to post result, trying again")
+                time.sleep(5)
 
     if last_environment != None:
         last_environment.close()
