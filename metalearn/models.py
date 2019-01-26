@@ -115,6 +115,8 @@ class ExperimentSet(models.Model):
         isNew = self.id == None
         super(ExperimentSet, self).save(*args, **kwargs)      
 
+        transaction.commit()
+
         if isNew == True:
             tasks.on_ExperimentSet_created.delay(self.id)
         
@@ -154,6 +156,8 @@ class Experiment(models.Model):
     def save(self, *args, **kwargs):
         isNew = self.id == None
         super(Experiment, self).save(*args, **kwargs)
+
+        transaction.commit()
 
         if isNew == True:
             tasks.on_Experiment_created.delay(self.id, self.experimentSet.id)
@@ -233,6 +237,8 @@ class Episode(models.Model):
 
         super(Episode, self).save(*args, **kwargs)
 
+        transaction.commit()
+
         if isNew == True:
             tasks.on_Episode_created.delay(self.id, self.experiment.id, self.experimentSet.id)
 
@@ -267,6 +273,8 @@ class EpisodeNoisyExecution(models.Model):
         isNew = self.id == None
 
         super(EpisodeNoisyExecution, self).save(*args, **kwargs)
+        
+        transaction.commit()
 
         #if isNew == True:
         #    tasks.on_EpisodeNoisyExecution_created.delay(self.id, self.episode.id, self.experiment.id, self.experimentSet.id)
@@ -279,6 +287,9 @@ class EpisodeNoisyExecution(models.Model):
         self.steps = data["steps"]
         self.status = "done"
         self.save()
+
+        transaction.commit()
+
         tasks.on_NoisyExecution_done.delay(self.id, self.episode.id, self.experiment.id, self.experimentSet.id)
 
 
