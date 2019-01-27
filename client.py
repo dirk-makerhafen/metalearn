@@ -196,7 +196,7 @@ def run():
         })
         print("%s  |  %s  | Steps: %s \tTime: %s \tFitness: %s" % (noisyExecution["environment.name"], noisyExecution["architecture.name"],  steps, ts, fitness))
 
-        while True
+        while True:
             try:
                 requests.post("%s/putResult/%s/%s" % (URL, noisyExecution["id"], noisyExecution["lock"]), results)
                 break
