@@ -23,7 +23,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = '4q=18^^)q@(fa=1vb6zujwa5-ooyn00crh1*5q1_bva1pf4shh'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
@@ -43,6 +43,9 @@ INSTALLED_APPS = (
     'django.contrib.admin',
     'widget_tweaks',
     'crispy_forms',
+    'django_select2',
+    'django_ajax',
+    'cruds_adminlte',
     #'django_celery_results',
 )
 
@@ -164,3 +167,11 @@ CRISPY_TEMPLATE_PACK = 'bootstrap3'
 
 STATIC_URL = '/static/'
 STATIC_ROOT = "%s/metalearn/static" % BASE_DIR
+
+CRISPY_TEMPLATE_PACK = 'bootstrap3'
+IMAGE_CROPPING_JQUERY_URL = None
+TIME_FORMAT= 'h:i A'
+DATETIME_FORMAT='m/d/Y H:i:s'
+DATE_FORMAT="m/d/Y"
+
+TIME_INPUT_FORMATS = ['%I:%M %p']

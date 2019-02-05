@@ -11,7 +11,6 @@ import sys
 import threading
 import multiprocessing
 import signal
-#from pympler.tracker import SummaryTracker
 
 
 from metalearn.ml import environments
@@ -123,89 +122,27 @@ def getNextEpisodeNoisyExecution():
     return None
     
 
-def getEnvironmentInstance(noisyExecution):
-    a = {}
-    for v in json.loads(noisyExecution["environment.classargs"]):
-        a[v[0]] = v[1]
-    return getattr(environments, noisyExecution["environment.classname"])(**a)
+def getEnvironmentInstance(name):
+    return environments.all_environments[name]["class"]()
 
-def getArchitectureInstance(noisyExecution):
-    a = {}
-    for v in json.loads(noisyExecution["architecture.classargs"]):
-        a[v[0]] = v[1]
-    return getattr(architectures, noisyExecution["architecture.classname"])(**a)
-
+def getArchitectureInstance(name):
+    return architectures.all_architectures[name]["class"]()
 
 def run():
     global CNT
 
-    # for speedup so we don't have to initialize every time
-    last_environment = None
-    last_architecture = None
-    last_envarchkey = ""
-
     while CNT > 0:
-        
         noisyExecution = getNextEpisodeNoisyExecution()
         if noisyExecution == None:
             print("Nothing to do, waiting")
             time.sleep(5)
-            continue
-
-        print("#################")
-        print(noisyExecution)
-
-        start = time.time()
-
-        weightsNoise = weightsNoiseCache.get(noisyExecution["episode.id"])  # [0] -> Weights , [1] -> NoiseLevels
-        weights_new = weightsNoise[0] + (weightsNoise[1] * createNoise(noisyExecution["noiseseed"], len(weightsNoise[0] ) ) )
-
-        weightsNoise = None # speedup memory free
-
-        envarchkey = noisyExecution["environment.classname"] + "__" + noisyExecution["environment.classargs"] + "__" + noisyExecution["architecture.classname"] + "__" + noisyExecution["architecture.classargs"]
-        if envarchkey == last_envarchkey: # use last used arch/env
-            print("Using env/arch from cache")
-            environment = last_environment
-            environment.reset()
-            architecture = last_architecture
-            architecture.reset(weights_new)
-        else:
-            print("Using NEW env/arch")
-                        
-            if last_environment != None:
-                last_environment.close()
-            if last_architecture != None:
-                last_architecture.close()
-            environment = getEnvironmentInstance(noisyExecution)
-            architecture = getArchitectureInstance(noisyExecution)
-            environment.initialize()
-            architecture.initialize(environment.observation_space, environment.action_space, weights_new)
-        
-        weights_new = None # free memory 
-        last_architecture = architecture
-        last_environment  = environment
-        last_envarchkey = envarchkey
-        fitness = 0
-        steps = 0
-
-        while environment.hasNextObservation():
-            observation = environment.getNextObservation()
-            action = architecture.run(observation)
-            fitness += environment.runAction(action) 
-            #env.env.render()
-            steps += 1
-            if steps >= noisyExecution["max_steps"]:
-                break
-            if int(time.time() - start) >= noisyExecution["max_timespend"]:
-                break
-        
-        ts =  int(time.time() - start)
+            continue    
         results = json.dumps({
-            "fitness" : fitness,
-            "steps" : steps,
-            "timespend" : ts,
+            "fitness" : random.random(),
+            "steps" : 23,
+            "timespend" : 23,
         })
-        print("%s  |  %s  | Steps: %s \tTime: %s \tFitness: %s" % (noisyExecution["environment.classname"], noisyExecution["architecture.classname"],  steps, ts, fitness))
+        print("%s  |  %s  | Steps: %s \tTime: %s \tFitness: %s" % (noisyExecution["environment.classname"], noisyExecution["architecture.classname"],  23, 23, 23))
 
         while True:
             try:
@@ -218,10 +155,6 @@ def run():
                 break
         CNT -= 1
 
-    if last_environment != None:
-        last_environment.close()
-    if last_architecture != None:
-        last_architecture.close()     
 
 
 def daemonThread(): 
@@ -268,9 +201,7 @@ if ARG == "daemon":
     start()
 
 elif ARG == "run":
-    #tracker = SummaryTracker()
     run()
-    #tracker.print_diff()
 elif ARG == "status":
     print("Daemon Active:")
     os.system("ps x | grep 'python3 client.py daemon ' | grep -v grep | grep -v nice | wc -l")

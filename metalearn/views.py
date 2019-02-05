@@ -29,53 +29,27 @@ def dashboard(request):
 def getEpisodeNoisyExecution(request, preferedEpisodeIds = ''):
     if preferedEpisodeIds != "":
         preferedEpisodeIds = [int(x) for x in preferedEpisodeIds.split(",")]
-
     client_ip = request.META.get('REMOTE_ADDR')
-    lock = "%s" % uuid.uuid4()
 
-    locked = 0
+    episodeNoisyExecution, lock = models.EpisodeNoisyExecution.getOneIdleLocked(client_ip, episodeIds = preferedEpisodeIds )
+    if episodeNoisyExecution == None and len(preferedEpisodeIds) > 0:
+        episodeNoisyExecution, lock = models.EpisodeNoisyExecution.getOneIdleLocked(client_ip)
 
-    episodeNoisyExecutions = []
-    if len(preferedEpisodeIds) > 0:
-        episodeNoisyExecutions = models.EpisodeNoisyExecution.objects \
-            .filter(status = "idle")                                  \
-            .filter(episode__status = "active")                       \
-            .filter(episode__public = True)                           \
-            .filter(episode_id__in = preferedEpisodeIds).order_by("number")[:5]
-
-    if len(episodeNoisyExecutions) == 0:
-        episodeIds = list(models.Episode.objects.filter(status = "active", public = True).values_list("id"))
-        if len(episodeIds) > 3:
-            episodeIds = random.sample(episodeIds, 3)
-        episodeNoisyExecutions = models.EpisodeNoisyExecution.objects \
-            .filter(status = "idle")                                  \
-            .filter(episode__status = "active")                       \
-            .filter(episode__public = True)                           \
-            .filter(episode_id__in = episodeIds).order_by("number")[:5]
-
-    episodeNoisyExecutions = list(episodeNoisyExecutions)
-
-    if len(episodeNoisyExecutions) > 0:
-        random.shuffle( episodeNoisyExecutions )
-        for episodeNoisyExecution in episodeNoisyExecutions:
-            locked = models.EpisodeNoisyExecution.objects                   \
-                .filter( id = episodeNoisyExecution.id, status = "idle", )   \
-                .update(status = "locked", lock = lock, client =  client_ip)
-            if locked == 1:
-                episodeNoisyExecutionJson = {
-                    "lock"              : lock,
-                    "id"                : episodeNoisyExecution.id,
-                    "noiseseed"         : episodeNoisyExecution.noiseseed,
-                    "episode.id"        : episodeNoisyExecution.episode.id,
-                    "max_timespend"     : episodeNoisyExecution.episode.episodeNoisyExecution_timespend,
-                    "max_steps"         : episodeNoisyExecution.episode.episodeNoisyExecution_steps,
-                    "environment.name"  : episodeNoisyExecution.environment.name,
-                    "architecture.name" : episodeNoisyExecution.architecture.name,
-                }
-                return JsonResponse(episodeNoisyExecutionJson,safe=False)   
-    
+    if episodeNoisyExecution != None:
+        episodeNoisyExecutionJson = {
+            "lock"              : lock,
+            "id"                : episodeNoisyExecution.id,
+            "noiseseed"         : episodeNoisyExecution.noiseseed,
+            "episode.id"        : episodeNoisyExecution.episode.id,
+            "max_timespend"     : episodeNoisyExecution.episode.subsettings_EpisodeNoisyExecutions_max_timespend,
+            "max_steps"         : episodeNoisyExecution.episode.subsettings_EpisodeNoisyExecutions_max_steps,
+            "environment.classname"  : episodeNoisyExecution.environment.classname,
+            "environment.classargs"  : episodeNoisyExecution.environment.classargs,
+            "architecture.classname" : episodeNoisyExecution.architecture.classname,
+            "architecture.classargs" : episodeNoisyExecution.architecture.classargs,
+        }
+        return JsonResponse(episodeNoisyExecutionJson,safe=False)   
     return JsonResponse(None,safe=False)   
-
 
 def getEpisodeWeightNoise(request, episodeId):
     episode = models.Episode.objects.get(id=episodeId)

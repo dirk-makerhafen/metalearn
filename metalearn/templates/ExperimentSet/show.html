@@ -1,0 +1,90 @@
+{% extends 'adminlte/base.html' %}
+{% load brainweb_tags %}
+
+{% block content_header %}
+    <section class="content-header">
+      <h1>  Show Individual '{{individual.id}}' 
+            from population  <a href="/population/{{individual.population.id}}">'{{individual.population.id}}'</a> 
+            for  species     <a href="/species/{{individual.population.species.id}}">'{{individual.population.species.name}}'</a> 
+      
+      </h1>
+      <ol class="breadcrumb">
+        <li><a href="/"><i class="fa fa-dashboard"></i> Home</a></li>
+        <li><a href="/individual">Individual</a></li>
+        <li class="active">Show</li>
+      </ol>
+    </section>
+{% endblock %}
+
+   
+    memory_usage = models.IntegerField(default = 0)    
+    execution_time = models.FloatField(default = 0)   
+    
+{% block content %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="box">
+                <div class="box-header with-border">
+                    <h3 class="box-title">Individual </h3>
+                </div>
+                <!-- /.box-header -->
+                <div class="box-body">
+                    <div class="col-md-9">
+                        <dl style="word-break:break-word" class="dl-horizontal">
+                            <dt>Created</dt>
+                            <dd>{{species.created|date:"d M. H:i" }}</dd>
+                            <dt>Updated</dt>
+                            <dd>{{species.created|date:"d M. H:i" }}</dd>
+                            <br>
+                            
+                            <dt>Fitness</dt>
+                            <dd>{{individual.fitness }}</dd>
+                            <dt>Fitness Relative</dt>
+                            <dd>{{individual.fitness_relative }}</dd>
+                            <dt>Fitness Evaluations</dt>
+                            <dd>{{individual.fitness_evaluations }}</dd>
+                            <br>
+                            
+                            <dt>Executions</dt>
+                            <dd>{{individual.executions }}</dd>
+
+                            <dt>Program steps avg</dt>
+                            <dd>{{individual.get_program_steps_avg |floatformat:0 }}</dd>
+                            
+                            <dt>memory usage avg</dt>
+                            <dd>{{individual.get_memory_usage_avg |floatformat:0 }}</dd>
+                                   
+                            <dt>Execution time avg (ms)</dt>
+                            <dd>{{individual.get_execution_time_avg | format_uS2time }}</dd>
+                                                             
+                            
+                            
+                            <dt>Compiler</dt>
+                            <dd>{{individual.compiler }}</dd>                            
+                            <dt>Code Length</dt>
+                            <dd>{{individual.code_size }}</dd>
+                            <dt>Permanent Memory Usage</dt>
+                            <dd>{{individual.memory_size }}</dd>
+
+                            
+                            <dt>Code Compiled</dt>
+                            <dd>{{individual.code_compiled }}</dd>
+                            <br>
+                            <dt>Code</dt>
+                            <dd>{{individual.code }}</dd>
+                            <br>
+                            <dt>Memory</dt>
+                            <dd>{{individual.memory }}</dd>
+                                                                          
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+       
+        
+    </div>
+
+
+
+{% endblock %}

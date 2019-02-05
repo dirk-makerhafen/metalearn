@@ -1,6 +1,7 @@
 # metalearn
 MetaLearning stuff
 
+Learning to learn without gradient descent without gradient descent
 
 apt-get install python3 python3-venv python3-dev cmake zlib1g-dev
 
@@ -26,11 +27,7 @@ python3 manage.py migrate
 python3 manage.py migrate metalearn
 
 
-python3 manage.py ml env sync
-
-python3 manage.py ml arch sync
-
-python3 manage.py ml opti sync
+python3 manage.py ml loaddefaults
 
 python3 manage.py ml storage sync
 

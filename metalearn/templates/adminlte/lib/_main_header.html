@@ -13,9 +13,25 @@
     <!-- Header Navbar: style can be found in header.less -->
     {% block nav_bar %}
     <nav class="navbar navbar-static-top">
+
+        <div class="collapse navbar-collapse pull-left" id="navbar-collapse">
+            <ul class="nav navbar-nav">
+
+                <li><a href="/metalearn/environment/list">Environments</a></li>
+                <li><a href="/metalearn/architecture/list">Architectures</a></li>
+                <li><a href="/metalearn/optimiser/list">Optimisers</a></li>
+
+                <li><a href="/metalearn/experimentset/list">ExperimentSets</a></li>
+                <li><a href="/metalearn/experiment/list">Experiments</a></li>
+                <li><a href="/metalearn/episode/list">Episodes</a></li>
+                <li><a href="/metalearn/episodenoisyexecution/list">Episode Execution</a></li>
+            </ul>
+        </div>
+
         <div class="navbar-custom-menu">
             <ul class="nav navbar-nav">
                 {% block header_dropdowns %}
+                        
                     {% if request.user.is_authenticated %}
                         <li class="user user-menu">
                             <a>

@@ -1,5 +1,7 @@
-
+import numpy
 import gym
+from gym import spaces
+
 import tensorflow as tf
 #from nn import tf_util
 
@@ -20,153 +22,110 @@ class EnvironmentInstance():
         pass
 
     def runAction(self, action):
-        pass
+        pass # return reward
 
     def close(self):
         pass
 
 
-'''
-class MetaTrainingEnvironmentInstance():
-    def __init__(self, environment_name, arch_name):
-        self.trainenv = environment_name # some env
-        self.trainarch = arch_name # some arch_name
 
-        self.episodes = 100
-        self.episodes_done = 0
 
-        self.exec_per_episode = 300
-        self.exec_per_episode_done = 0
+class EnvironmentLens():
+    def __init__(self, max_x, max_y):
 
-        num_params = getNumberOfParameter(self.trainenv, self.trainarch)
-        nr_of_embeddings_optimiser = 4
-        
+        self.max_x = 10 # in px
+        self.max_y = 10
+
         self.observation_space = spaces.Tuple((
-            spaces.Box(low=0,    high=100, shape=[ num_params, nr_of_embeddings_optimiser ]),   # Last embedding
-            spaces.Box(low=-180, high=180, shape=[ num_params, 1 ]),  # Used Weights#
-            spaces.Tuple((   # metaparameters
-                spaces.Box(low=-180, high=180, shape=1), # fitness
-                spaces.Box(low=-180, high=180, shape=1), # rank
-                spaces.Box(low=-180, high=180, shape=1), # steps
-                spaces.Box(low=-180, high=180, shape=1), # foo
-            )),
+            spaces.Box(low=-1,   high=1, shape=[ 2 ]), # center  (x,y) # -1,-1 = bottom left
+            spaces.Box(low= 0,   high=1, shape=[ 2 ]), # dimensions  (x,y) #1=full input image, 0=max_x/max_y pixels of inputimg
+            spaces.Box(low=-1,   high=1, shape=[ 2 ]), # scaling  (x,y) # 0: linear, 1=more pixels at center, -1=more pixels at edge
+            spaces.Box(low= 0,   high=1, shape=[ max_x, max_y, 3 ]), # image pixels
         ))
 
         self.action_space = spaces.Tuple((
-            spaces.Box(low=0,    high=100, shape=[ num_params, nr_of_embeddings_optimiser ]),   #new embedding
-            spaces.Box(low=-180, high=180, shape=[ num_params, 1 ]),  # new Weights
-            spaces.Box(low=-180, high=180, shape=[ num_params, 1 ]),  # new noise
+            spaces.Box(low=-1,   high=1, shape=[ 2 ]), # center  (x,y)
+            spaces.Box(low= 0,   high=1, shape=[ 2 ]), # dimensions  (x,y)
+            spaces.Box(low=-1,   high=1, shape=[ 2 ]), # scaling  (x,y)   
+        )) 
+
+
+
+class EnvironmentMnist(EnvironmentInstance):
+    def __init__(self,nr_of_embeddings_per_weight, nr_of_embeddings):
+        self.dataset = []
+        self.observation_space = spaces.Tuple((
+            spaces.Box(low=0,    high=255, shape=[ 28, 28 ]),
         ))
 
-        self.next_observation = (
-            np.random.randn(shape=[ num_params, nr_of_embeddings_optimiser ]),      # last embedding
-            np.random.randn(shape=[ num_params, 1 ]),        # used weights
-            (
-                0, # fitness
-                0, # rank
-                0, # steps
-                0, # foo
-            )
-        )
-        firststepdone = False
-        self.fitnesses = []
-        currentEpisode = None
+        self.action_space = spaces.Tuple((
+            spaces.Box(low=0, high=9, shape=[ 1 ]),  
+        )) 
+
+        self.max_observations = 1000
+        self.obs_nr = 0
 
     def initialize(self):
-        pass
+        self.dataset = []
+        for line in random.sample(open("metalearn/ml/datasets/mnist_train.csv","rb").read().split("\n"), self.max_observations):
+            linebits = line.split(",")
+            imarray = numpy.asfarray(linebits[1:]).reshape((28,28))
+            value = float(linebits[0])
+            self.dataset.append([value, imarray])
 
     def reset(self):
-        pass
-    
+        self.obs_nr = 0
+        self.initialize()
+
     def hasNextObservation(self):
-        return self.next_observation != None:
-            
+        if self.obs_nr < self.max_observations:
+            return True
+
     def getNextObservation(self):
-        return self.next_observation
-        
+        if not self.hasNextObservation():
+            return None
+        value, img = self.dataset[self.obs_nr]
+        self.obs_nr += 1
+        return img
+
     def runAction(self, action):
-        if currentEpisode == None:
-            self.currentEpisode = Episode()
+        if self.obs_nr == 0: 
             return 0
-
-        if currentEpisode.receivedAll == True:
-            if more_to_go :
-                self.currentEpisode = Episode()
-                set weights from action
-            return 0
-
-        if self.currentEpisode.rundone != True:
-            self.currentEpisode.runall()
-
-        for item in currentEpisode.noiseexecutions:
-            if item.received == False:  
-                item.received = True
-                self.next_observation = (
-                    action.emb,      # last embedding
-                    item.used_weights,        # used weights
-                    (
-                        item.fitness, # fitness
-                        item.rank, # rank
-                        item.steps, # steps
-                        item.foo, # foo
-                    )
-                )
-                return item.fitness
-        self.next_observation = None
+        print(self.dataset[ self.obs_nr - 1 ] , action)
+        if int(self.dataset[ self.obs_nr - 1 ][0]) == int(action):
+            return 1
         return 0
-
-        emb ,_, _ = action
-        if firststepdone == False:  
-            firststepdone = True
-            emb ,weights, noise = action    
-            self.fitnesses = []
-
-            for j in range(self.exec_per_episode_done,self.exec_per_episode):
-                rseed = 23
-                weights_new = inputweights + np.random.randn(23)
-                fitness = run_one_turn(self, inputweights )
-                self.exec_per_episode_done += 1
-                self.fitnesses.append(fitness)
-                if self.exec_per_episode_done == self.exec_per_episode:
-                    s = sum(fitnesses)
-                    self.fitnesses = []
-                    return s
-                return 0
-            self.episodes_to_do += 1
-            self.exec_per_episode_done = 0
-            emb ,weights, noise = action    
-
-
-        return None
-
-    def run_one_turn(self, inputweights ):
-        
-        self.trainarch.initialize(environment.observation_space, environment.action_space, weights_new)
-        fitness = 0
-        while self.trainenv.hasNextObservation():
-            observation = self.trainenv.getNextObservation()
-            action = self.trainarch.run(observation)
-            fitness += self.trainenv.runAction(action) 
-            #env.env.render()
-            steps += 1
-            if steps >= noisyExecution["max_steps"]:
-                break
-            if int(time.time() - start) >= noisyExecution["max_timespend"]:
-                break
-        return fitness
-
 
     def close(self):
         pass
-{ 
-    'MetaTraining - Atari Frostbite-v0 - GAAtariPolicy elu' : { 
-        "description": "OpenAI Default Env",
-        "class": factory(MetaTrainingEnvironmentInstance, environment_name = 'Atari Frostbite-v0', arch_name = "GAAtariPolicy elu"),
-}
 
-class DummyEnvironmentInstance():
-    def __init__(self):
-        pass
+
+
+#this is used by tasks.py on_Experiment_created when the optimiser of the optimiser experiment is initialized
+class OptimiserMetaESEnvironment(EnvironmentInstance):
+    def __init__(self,nr_of_embeddings_per_weight, nr_of_embeddings):
+        num_params = 10 # ! this must not influence the network size in term of lernable parameters, its just a placeholder.
+        
+        self.observation_space = spaces.Tuple((
+            spaces.Box(low=0,    high=100, shape=[ num_params, nr_of_embeddings_per_weight ]),   # per_weight_embeddings
+            spaces.Box(low=-180, high=180, shape=[ num_params ]),  # used_weights
+            spaces.Box(low=-180, high=180, shape=[ nr_of_embeddings ]),  # embedding
+            spaces.Box(low=-180, high=180, shape=[ 1 ]), # episode nr   
+            spaces.Box(low=-180, high=180, shape=[ 1 ]), # fitness
+            spaces.Box(low=0,    high=1,   shape=[ 1 ]), # rank
+            spaces.Box(low=-180, high=180, shape=[ 1 ]), # steps
+            spaces.Box(low=0,    high=1,   shape=[ 1 ]), # nr_of_noisy execution per expisode
+        ))
+
+        self.action_space = spaces.Tuple((
+            spaces.Box(low=0,    high=100, shape=[ num_params, nr_of_embeddings_per_weight ]),   #per_weight_embeddings
+            spaces.Box(low=-180, high=180, shape=[ num_params ]),  # new Weights
+            spaces.Box(low=-180, high=180, shape=[ num_params ]),  # new noise
+            spaces.Box(low=0, high=1, shape=[ nr_of_embeddings ]),  # embedding
+            spaces.Box(low=0, high=1, shape=[ 1 ]),  # count_factor
+            spaces.Box(low=0, high=1, shape=[ 1 ]),  # timespend_factor
+            spaces.Box(low=0, high=1, shape=[ 1 ]),  # steps_factor
+        ))   
 
     def initialize(self):
         pass
@@ -186,15 +145,14 @@ class DummyEnvironmentInstance():
     def close(self):
         pass
 
-'''
 
 class OpenAiGymEnvironmentInstance(EnvironmentInstance):
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, gymname):
+        self.gymname = gymname
         self.gym = None
 
     def initialize(self):
-        self.gym = gym.make(self.name)
+        self.gym = gym.make(self.gymname)
         self.observation_space = self.gym.observation_space
         self.action_space = self.gym.action_space
         self.need_firststep = True
@@ -243,129 +201,40 @@ class OpenAiGymEnvironmentInstance(EnvironmentInstance):
             self.gym.close()
 
 
-def factory(_class, **args):
-    def f():
-        return _class(**args)
-    return f
-
-all_environments = {
-    'Copy-v0'                 : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name = 'Copy-v0'),
-    },
-    'DuplicatedInput-v0'      : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name = 'DuplicatedInput-v0'), 
-    },
-    'RepeatCopy-v0'           : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name = 'RepeatCopy-v0'), 
-    } ,
-    'Reverse-v0'              : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name = 'Reverse-v0'), 
-    } ,
-    'ReversedAddition-v0'     : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name = 'ReversedAddition-v0'), 
-    },
-    'ReversedAddition3-v0'    : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name = 'ReversedAddition3-v0'), 
-    },
-    'Acrobot-v1'              : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name = 'Acrobot-v1'), 
-    },
-    'CartPole-v0'             : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'CartPole-v0'), 
-    },
-    'MountainCar-v0'          : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'MountainCar-v0'), 
-    },
-    'MountainCarContinuous-v0': { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'MountainCarContinuous-v0'), 
-    },
-    'Pendulum-v0'             : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'Pendulum-v0'), 
-    },
-    'Blackjack-v0'            : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'Blackjack-v0'), 
-    },
-    'FrozenLake-v0'           : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'FrozenLake-v0'), 
-    },
-    'FrozenLake8x8-v0'        : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'FrozenLake8x8-v0'), 
-    },
-    'GuessingGame-v0'         : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name = 'GuessingGame-v0'), 
-    },
-    'HotterColder-v0'         : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name = 'HotterColder-v0'), 
-    },
-    'NChain-v0'               : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name = 'NChain-v0'), 
-    },
-    'Roulette-v0'             : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'Roulette-v0'), 
-    },
-    'Taxi-v2'                 : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'Taxi-v2'), 
-    },
-    'BipedalWalker-v2'        : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'BipedalWalker-v2'), 
-    },
-    'BipedalWalkerHardcore-v2': { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'BipedalWalkerHardcore-v2'), 
-    },
-    'LunarLander-v2'          : { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'LunarLander-v2'), 
-    },
-    'LunarLanderContinuous-v2': { 
-        "description": "OpenAI Default Env",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'LunarLanderContinuous-v2'), 
-    }, 
-}
-
-
-all_environments = {
-    'Atari Frostbite-v0'                 : { 
-        "description": "Gym Atari Frostbite-v0",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'Frostbite-v0'),
-    },
-    'Atari FreewayNoFrameskip-v4'                 : { 
-        "description": "Gym Atari FreewayNoFrameskip-v4",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'FreewayNoFrameskip-v4'),
-    },
-    'Atari Alien-v0'                 : { 
-        "description": "Gym Atari Alien-v0",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'Alien-v0'),
-    },
-    'Atari Pong-v0'                 : { 
-        "description": "Gym Atari Pong-v0",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'Pong-v0'),
-    },
-    'Atari Gravitar-v0'                 : { 
-        "description": "Gym Atari Gravitar-v0",
-        "class": factory(OpenAiGymEnvironmentInstance, name =  'Gravitar-v0'),
-    },
-}
+# create these if you db is empty
+default_models = [
+        {
+            "name":"Atari Frostbite-v0",
+            "description": "",
+            "classname":"OpenAiGymEnvironmentInstance",
+            "classargs":[[ "gymname", "Frostbite-v0"]],
+        },{
+            "name":"Atari FreewayNoFrameskip-v4",
+            "description": "",
+            "classname":"OpenAiGymEnvironmentInstance",
+            "classargs":[[ "gymname", "FreewayNoFrameskip-v4"]],
+        },{
+            "name":"Atari Alien-v0",
+            "description": "",
+            "classname":"OpenAiGymEnvironmentInstance",
+            "classargs":[[ "gymname", "Alien-v0"]],
+        },{
+            "name":"Atari Pong-v0",
+            "description": "",
+            "classname":"OpenAiGymEnvironmentInstance",
+            "classargs":[[ "gymname", "Pong-v0"]],
+        },{
+            "name":"Atari Gravitar-v0",
+            "description": "",
+            "classname":"OpenAiGymEnvironmentInstance",
+            "classargs":[[ "gymname", "Gravitar-v0"]],
+        },{
+            "name":"OptimiserMetaESEnvironment",
+            "description": "",
+            "classname":"OptimiserMetaESEnvironment",
+            "classargs":[["nr_of_embeddings_per_weight",5] , [ "nr_of_embeddings", 20 ] ],
+        },
+    ]
 
 
 

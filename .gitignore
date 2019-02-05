@@ -6,4 +6,5 @@ settings_local.py
 *.so
 venv
 metalearn/ml/data
+metalearn/ml/datasets
 cluster_settings.py

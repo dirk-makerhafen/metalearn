@@ -28,7 +28,7 @@ def max(x, axis=None, keepdims=False):
 def min(x, axis=None, keepdims=False):
     return tf.reduce_min(x, reduction_indices=None if axis is None else [axis], keep_dims = keepdims)
 def concatenate(arrs, axis=0):
-    return tf.concat(axis, arrs)
+    return tf.concat(axis=axis,values= arrs)
 def argmax(x, axis=None):
     return tf.argmax(x, dimension=axis)
 
@@ -160,6 +160,22 @@ def dense(x, size, name, weight_init=None, bias=True, std=1.0):
     else:
         return ret
 
+def dense_nb(x, size, name, weight_init=None, bias=True, std=1.0):
+    w = tf.get_variable(name + "/w", [x.get_shape()[0], size], initializer=weight_init)
+
+    w.reinitialize = _normalize(w, std=std)
+
+    ret = tf.matmul(x, w)
+    if bias:
+        b = tf.get_variable(name + "/b", [size], initializer=tf.zeros_initializer)
+
+        b.reinitialize = b.assign(tf.zeros_like(b))
+        #b = tf.Print(b, [b, w], name + 'last_bias,w=' )
+        return ret + b
+    else:
+        return ret
+
+
 # ================================================================
 # Basic Stuff
 # ================================================================
@@ -217,7 +233,7 @@ def intprod(x):
 
 def flatgrad(loss, var_list):
     grads = tf.gradients(loss, var_list)
-    return tf.concat(0, [tf.reshape(grad, [numel(v)])
+    return tf.concat(axis=0, values=[tf.reshape(grad, [numel(v)])
         for (v, grad) in zip(var_list, grads)])
 
 class SetFromFlat(object):
@@ -240,7 +256,7 @@ class SetFromFlat(object):
 
 class GetFlat(object):
     def __init__(self, var_list):
-        self.op = tf.concat(0, [tf.reshape(v, [numel(v)]) for v in var_list])
+        self.op = tf.concat(axis=0, values=[tf.reshape(v, [numel(v)]) for v in var_list])
     def __call__(self):
         return get_session().run(self.op)
 

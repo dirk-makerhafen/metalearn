@@ -50,6 +50,7 @@ class Architecture():
             for v in self.all_variables:
                 shp = v.get_shape().as_list()
                 logger.info('- {} shape:{} size:{}'.format(v.name, shp, np.prod(shp)))
+        print("initialize.initialize done")
 
     def reset(self, weights):
         self.set_weights(weights)
@@ -155,66 +156,143 @@ class Architecture_MujocoPolicy(Architecture):
             return scope
 
 
-'''
 class Architecture_MetaES(Architecture):
+    def __init__(self, nr_of_embeddings_per_weight, nr_of_embeddings):
+        self.nr_of_embeddings_per_weight = nr_of_embeddings_per_weight    
+        self.nr_of_embeddings = nr_of_embeddings    
 
     def _initialize(self ):
-        self.ob_space_shape = self.input_space.shape
-        self.ac_space = self.output_space
-        self.nonlin = {'tanh': tf.tanh, 'relu': tf.nn.relu, 'lrelu': tf_util.lrelu, 'elu': tf.nn.elu}["tanh"]
-
-        assert len(self.ob_space_shape) == len(self.ac_space.shape) == 1
-        assert np.all(np.isfinite(self.ac_space.low)) and np.all(np.isfinite(self.ac_space.high)),'Action bounds required'
-
         with tf.variable_scope(type(self).__name__) as scope:
-            # Policy network
-            o = tf.placeholder(tf.float32, [None] + list(self.ob_space_shape))
-            o = tf.clip_by_value((o - ob_mean) / ob_std, -5.0, 5.0)
+            nr_of_weights  = self.input_space.spaces[0].shape[0]
+            assert self.nr_of_embeddings_per_weight == self.input_space.spaces[0].shape[1]
+            assert self.nr_of_embeddings == self.input_space.spaces[2].shape[0]
 
-            x = o
-            for ilayer, hd in enumerate(self.hidden_dims):
-                x = self.nonlin(tf_util.dense(x, hd, 'l{}'.format(ilayer), tf_util.normc_initializer(1.0)))
 
-            adim, ahigh, alow = self.ac_space.shape[0], self.ac_space.high, self.ac_space.low # Map to action
+            in_embeddings_per_weight = tf.placeholder(tf.float32, [1, nr_of_weights, self.nr_of_embeddings_per_weight ])
+            in_weights               = tf.placeholder(tf.float32, [1, nr_of_weights ] )
+            in_embeddings            = tf.placeholder(tf.float32, [1, self.nr_of_embeddings ] )
+            in_episode_nr            = tf.placeholder(tf.float32, [1, 1 ]) 
+            in_fitness               = tf.placeholder(tf.float32, [1, 1 ])
+            in_rank                  = tf.placeholder(tf.float32, [1, 1 ])
+            in_steps                 = tf.placeholder(tf.float32, [1, 1 ])
+            in_count                 = tf.placeholder(tf.float32, [1, 1 ])
 
-            a = tf_util.dense(x, adim, 'out', tf_util.normc_initializer(0.01))
+            inputs = [ in_embeddings_per_weight, in_weights, in_embeddings, in_episode_nr, in_fitness, in_rank, in_steps, in_count ]
 
-            self._run = tf_util.function([o], a)
+            meta_input = tf.concat(values=[ in_embeddings, in_episode_nr, in_fitness, in_rank, in_steps, in_count],axis=1)
+
+            meta_dense_1   = layers.fully_connected(meta_input  , num_outputs=self.nr_of_embeddings*2, activation_fn=None)
+            meta_dense_2   = layers.fully_connected(meta_dense_1, num_outputs=self.nr_of_embeddings*2, activation_fn=None)
+            new_embeddings = layers.fully_connected(meta_dense_2, num_outputs=self.nr_of_embeddings  , activation_fn=None)
+
+            def f_emb(inp):   
+                print("here2")
+                print(new_embeddings)
+                print(inp)  
+                inp = tf.concat(values = [ new_embeddings[0], inp ], axis = 0 )
+                inp = tf.expand_dims(inp,0)  # re-add batch dim of 1
+                print(inp)  
+                l_emb = layers.fully_connected(inp, num_outputs=self.nr_of_embeddings_per_weight, activation_fn=None)       
+                print("l_emb")
+                print(l_emb)  
+                return l_emb
+
+            def f_wn(inp): 
+                print("here1")
+                print(new_embeddings)
+                print(inp)
+                inp = tf.concat(values = [ new_embeddings[0], inp ], axis = 0 )
+                print(inp)
+                inp = tf.expand_dims(inp,0)  # re-add batch dim of 1
+                l_weight = layers.fully_connected(inp, num_outputs=1, activation_fn=None)[0]
+                l_noise = layers.fully_connected(inp, num_outputs=1, activation_fn=None)[0]
+                return [l_weight,l_noise]
+
+            in_weights_exp = tf.expand_dims(in_weights,2)
+            print(in_weights_exp)
+            r = tf.concat(values = [ in_embeddings_per_weight, in_weights_exp ], axis = 2 )
+            print("r")
+            print(r)
+            new_embeddings_per_weight = tf.map_fn(f_emb, r[0], back_prop=False, parallel_iterations=100) # r[0] because r contains batch,  new_embeddings_per_weight shape is [nr_of_weights, 1,nr_of_embeddings_per_weight]
+            print("new_embeddings_per_weight") 
+            new_embeddings_per_weight = tf.squeeze(new_embeddings_per_weight,axis=1) 
+
+            print(new_embeddings_per_weight)
+            wn = tf.map_fn(f_wn, new_embeddings_per_weight, dtype=[tf.float32, tf.float32], back_prop=False, parallel_iterations=100)
+            print("wn")
+            print(wn)
+
+            new_weights = tf.squeeze(wn[0],axis=1) 
+            new_noise   = tf.squeeze(wn[1],axis=1) 
+
+            new_embeddings_per_weight = tf.expand_dims(new_embeddings_per_weight,0)  # re-add batch dim of 1
+            new_weights = tf.expand_dims(new_weights,0)  # re-add batch dim of 1
+            new_noise = tf.expand_dims(new_noise,0)  # re-add batch dim of 1
+
+            print(new_weights)
+            print(new_noise)
+
+            new_count_factor     = layers.fully_connected(new_embeddings, num_outputs=1, activation_fn=tf.tanh)
+            new_timespend_factor = layers.fully_connected(new_embeddings, num_outputs=1, activation_fn=tf.tanh)
+            new_steps_factor     = layers.fully_connected(new_embeddings, num_outputs=1, activation_fn=tf.tanh)
+
+            outputs = [
+                new_embeddings_per_weight,
+                new_weights,
+                new_noise,
+                new_embeddings,
+                new_count_factor,
+                new_timespend_factor,
+                new_steps_factor,
+            ]
+            self._run = tf_util.function(inputs, outputs)
             return scope
-'''
 
-def factory(_class, **args):
-    def f():
-        return _class(**args)
-    return f
+    def run(self, inputs):
+        for i in range(0,len(inputs)):
+            inputs[i] = np.array([inputs[i]]) #add batch dim 
+            
+        outputs =  self._run(*inputs)
+        for i in range(0,len(outputs)):
+            outputs[i] = outputs[i][0]#.astype(np.float32)# remove batch dim
+        outputs[2] = outputs[2]#.astype(np.float16)    # noiselevel is float16 
+        return outputs
 
+# create these if your db is empty
+default_models = [
+        {
+            "name":"GAAtariPolicy",
+            "description": "",
+            "classname":"Architecture_GAAtariPolicy",
+            "classargs":[[ "nonlin_type", "tanh"]],
+        },{
+            "name":"GAAtariPolicy",
+            "description":"",
+            "classname":"Architecture_GAAtariPolicy",
+            "classargs":[[ "nonlin_type", "relu"]],
+        },{
+            "name":"GAAtariPolicy",
+            "description":"",
+            "classname":"Architecture_GAAtariPolicy",
+            "classargs":[[ "nonlin_type", "lrelu"]],
+        },{
+            "name":"GAAtariPolicy",
+            "description":"",
+            "classname":"Architecture_GAAtariPolicy",
+            "classargs":[[ "nonlin_type", "elu"]],
+        },{
+            "name":"ESAtariPolicy",
+            "description":"",
+            "classname":"Architecture_ESAtariPolicy",
+            "classargs":[],
+        },{
+            "name":"MetaES",
+            "description":"",
+            "classname":"Architecture_MetaES",
+            "classargs":[["nr_of_embeddings_per_weight",5] , [ "nr_of_embeddings", 20 ] ],
+        },
+    ]
 
-all_architectures = {
-    "GAAtariPolicy tanh" : {
-        "description" : "GAAtariPolicy tanh",
-        "class" : factory(Architecture_GAAtariPolicy, nonlin_type = "tanh"),
-    },
-    "GAAtariPolicy relu" : {
-        "description" : "GAAtariPolicy relu",
-        "class" : factory(Architecture_GAAtariPolicy, nonlin_type = "relu"),
-    },
-    "GAAtariPolicy lrelu" : {
-        "description" : "GAAtariPolicy lrelu",
-        "class" : factory(Architecture_GAAtariPolicy, nonlin_type = "lrelu"),
-    },
-    "GAAtariPolicy elu" : {
-        "description" : "GAAtariPolicy elu",
-        "class" : factory(Architecture_GAAtariPolicy, nonlin_type = "elu"),
-    },
-    "ESAtariPolicy" : {
-        "description" : "ESAtariPolicy",
-        "class" : factory(Architecture_ESAtariPolicy),
-    },
-
-
-
-  
-}
 
 
 
