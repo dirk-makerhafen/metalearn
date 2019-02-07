@@ -132,10 +132,18 @@ def on_Experiment_created(experiment_id, experimentSet_id):
 
     episode.weightsNoise, episode.optimiserMetaData, episode.optimiserData, count_factor, timespend_factor, steps_factor = result
 
-    e = episode.experimentSet          
-    episode.subsettings_EpisodeNoisyExecutions_max           = e.subsettings_EpisodeNoisyExecutions_min           + ( ( e.subsettings_EpisodeNoisyExecutions_max           - e.subsettings_EpisodeNoisyExecutions_min           ) * count_factor      )
-    episode.subsettings_EpisodeNoisyExecutions_max_steps     = e.subsettings_EpisodeNoisyExecutions_min_steps     + ( ( e.subsettings_EpisodeNoisyExecutions_max_steps     - e.subsettings_EpisodeNoisyExecutions_min_steps     ) * steps_factor      )
-    episode.subsettings_EpisodeNoisyExecutions_max_timespend = e.subsettings_EpisodeNoisyExecutions_min_timespend + ( ( e.subsettings_EpisodeNoisyExecutions_max_timespend - e.subsettings_EpisodeNoisyExecutions_min_timespend ) * timespend_factor  )
+
+    eset = next_episode.experimentSet          
+    
+    #factors are -1 .. 1 
+    h = ( eset.subsettings_EpisodeNoisyExecutions_max           - eset.subsettings_EpisodeNoisyExecutions_min           ) / 2.0
+    next_episode.subsettings_EpisodeNoisyExecutions_max           = eset.subsettings_EpisodeNoisyExecutions_min            +  h + ( h  * count_factor      ) 
+
+    h = ( eset.subsettings_EpisodeNoisyExecutions_max_steps     - eset.subsettings_EpisodeNoisyExecutions_min_steps     ) / 2.0
+    next_episode.subsettings_EpisodeNoisyExecutions_max_steps     = eset.subsettings_EpisodeNoisyExecutions_min_steps      +  h + ( h * steps_factor      )
+
+    h = ( eset.subsettings_EpisodeNoisyExecutions_max_timespend - eset.subsettings_EpisodeNoisyExecutions_min_timespend ) / 2.0
+    next_episode.subsettings_EpisodeNoisyExecutions_max_timespend = eset.subsettings_EpisodeNoisyExecutions_min_timespend  +  h + ( h * timespend_factor  )
     episode.save()
 
 
@@ -264,17 +272,16 @@ def on_Episode_done(episode_id, experiment_id, experimentSet_id):
     current_episode.optimiserData = pickle.dumps({})
 
     eset = next_episode.experimentSet          
-    e = next_episode.experimentSet          
     
     #factors are -1 .. 1 
-    h = ( e.subsettings_EpisodeNoisyExecutions_max           - e.subsettings_EpisodeNoisyExecutions_min           ) / 2.0
-    next_episode.subsettings_EpisodeNoisyExecutions_max           = e.subsettings_EpisodeNoisyExecutions_min            +  h + ( h  * count_factor      ) 
+    h = ( eset.subsettings_EpisodeNoisyExecutions_max           - eset.subsettings_EpisodeNoisyExecutions_min           ) / 2.0
+    next_episode.subsettings_EpisodeNoisyExecutions_max           = eset.subsettings_EpisodeNoisyExecutions_min            +  h + ( h  * count_factor      ) 
 
-    h = ( e.subsettings_EpisodeNoisyExecutions_max_steps     - e.subsettings_EpisodeNoisyExecutions_min_steps     ) / 2.0
-    next_episode.subsettings_EpisodeNoisyExecutions_max_steps     = e.subsettings_EpisodeNoisyExecutions_min_steps      +  h + ( h * steps_factor      )
+    h = ( eset.subsettings_EpisodeNoisyExecutions_max_steps     - eset.subsettings_EpisodeNoisyExecutions_min_steps     ) / 2.0
+    next_episode.subsettings_EpisodeNoisyExecutions_max_steps     = eset.subsettings_EpisodeNoisyExecutions_min_steps      +  h + ( h * steps_factor      )
 
-    h = ( e.subsettings_EpisodeNoisyExecutions_max_timespend - e.subsettings_EpisodeNoisyExecutions_min_timespend ) / 2.0
-    next_episode.subsettings_EpisodeNoisyExecutions_max_timespend = e.subsettings_EpisodeNoisyExecutions_min_timespend  +  h + ( h * timespend_factor  )
+    h = ( eset.subsettings_EpisodeNoisyExecutions_max_timespend - eset.subsettings_EpisodeNoisyExecutions_min_timespend ) / 2.0
+    next_episode.subsettings_EpisodeNoisyExecutions_max_timespend = eset.subsettings_EpisodeNoisyExecutions_min_timespend  +  h + ( h * timespend_factor  )
     next_episode.save()
 
 

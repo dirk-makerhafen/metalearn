@@ -50,15 +50,17 @@ class remote_scripts():
         python3 -m pip install --upgrade pip
         python3 -m pip install -r requirements.txt
 
+        rm db.sqlite*
+        rm -r metalearn/migrations
+
         python3 manage.py makemigrations
         python3 manage.py makemigrations metalearn
 
         python3 manage.py migrate
         python3 manage.py migrate metalearn
+        
+        python3 manage.py ml loaddefaults
 
-        python3 manage.py ml env     sync
-        python3 manage.py ml arch    sync
-        python3 manage.py ml opti    sync
         python3 manage.py ml storage sync
 
     '''
