@@ -526,7 +526,8 @@ class OptimiserMetaES(BaseOptimiser):
         self.parameters["num_params"] = self.getNrOfTrainableParameters(environment, architecture)
 
         opti_noisyExecution = None
-        for i in range(0,10):
+
+        for i in range(0,2):
             experimentSet_id = ExperimentSet.objects.get(name=self.experimentSet_name).id
             opti_noisyExecution, lock = EpisodeNoisyExecution.getOneIdleLocked("OptimiserMetaES", public=False, experimentSetIds = [experimentSet_id ,])
             if opti_noisyExecution != None:

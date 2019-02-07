@@ -268,7 +268,7 @@ def on_Episode_done(episode_id, experiment_id, experimentSet_id):
     next_episode.weightsNoise, next_episode.optimiserMetaData, next_episode.optimiserData, count_factor, timespend_factor, steps_factor = optimiserInstance.optimise(current_episode)
 
     # clean hd space
-    #current_episode.weightsNoise = numpy.array([])
+    current_episode.weightsNoise = numpy.array([])
     current_episode.optimiserData = pickle.dumps({})
 
     eset = next_episode.experimentSet          
