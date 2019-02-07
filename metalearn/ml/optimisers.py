@@ -548,9 +548,9 @@ class OptimiserMetaES(BaseOptimiser):
         print(optimiser_Arch)
 
         data = np.array([
-            np.random.randn( self.parameters["num_params"], self.parameters["nr_of_embeddings_per_weight"]).astype(np.float32),    # per_weight_embeddings
+            np.zeros( [ self.parameters["num_params"], self.parameters["nr_of_embeddings_per_weight"] ]).astype(np.float32),    # per_weight_embeddings
             np.random.randn( self.parameters["num_params"]).astype(np.float32),        # used weights            
-            np.random.randn( self.parameters["nr_of_embeddings"]).astype(np.float32),       # embeddings          
+            np.zeros( [ self.parameters["nr_of_embeddings"]]).astype(np.float32),       # embeddings          
             np.array([0.0]), # episode nr 
             np.array([0.0]), # fitness
             np.array([0.0]), # rank
@@ -634,7 +634,13 @@ class OptimiserMetaES(BaseOptimiser):
         noisyExecutions = [x for x in episode.noisyExecutions.all()]
         for noisyExecution in noisyExecutions:
             print("running meta optimiser")
-            weights_used = weightNoise[0] + (weightNoise[1] * createNoise(noisyExecution.noiseseed, len(weightNoise[0] ) ) )
+            print(weightNoise)
+            print(len(weightNoise[0]))
+            print(len(weightNoise[1]))
+            print(len(weightNoise))
+            n = createNoise(noisyExecution.noiseseed, len(weightNoise[0] ))
+            print(len(n))
+            weights_used = weightNoise[0] + (weightNoise[1] * n )
 
             data = np.array([
                 new_embeddings_per_weight,      # last per_weight_embeddings

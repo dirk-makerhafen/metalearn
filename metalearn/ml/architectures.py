@@ -179,71 +179,56 @@ class Architecture_MetaES(Architecture):
 
             inputs = [ in_embeddings_per_weight, in_weights, in_embeddings, in_episode_nr, in_fitness, in_rank, in_steps, in_count ]
 
-            meta_input = tf.concat(values=[ in_embeddings, in_episode_nr, in_fitness, in_rank, in_steps, in_count],axis=1)
+            # Meta data embedding stuff
+            meta = tf.concat(values=[ in_embeddings, in_episode_nr, in_fitness, in_rank, in_steps, in_count],axis=1)
+            meta = layers.fully_connected(meta, num_outputs=self.nr_of_embeddings*4, activation_fn=tf.tanh)
+            meta = layers.fully_connected(meta, num_outputs=self.nr_of_embeddings*4, activation_fn=tf.tanh)
+            meta = layers.fully_connected(meta, num_outputs=self.nr_of_embeddings*3, activation_fn=tf.tanh)
 
-            meta_dense_1   = layers.fully_connected(meta_input  , num_outputs=self.nr_of_embeddings*2, activation_fn=None)
-            meta_dense_2   = layers.fully_connected(meta_dense_1, num_outputs=self.nr_of_embeddings*2, activation_fn=None)
-            new_embeddings = layers.fully_connected(meta_dense_2, num_outputs=self.nr_of_embeddings  , activation_fn=None)
+            tmp_embeddings = layers.fully_connected(meta, num_outputs=self.nr_of_embeddings_per_weight  , activation_fn=tf.tanh)     
 
-            def f_emb(inp):   
-                print("here2")
-                print(new_embeddings)
-                print(inp)  
-                inp = tf.concat(values = [ new_embeddings[0], inp ], axis = 0 )
-                inp = tf.expand_dims(inp,0)  # re-add batch dim of 1
-                print(inp)  
-                l_emb = layers.fully_connected(inp, num_outputs=self.nr_of_embeddings_per_weight, activation_fn=None)       
-                print("l_emb")
-                print(l_emb)  
-                return l_emb
+            # weights related operations
 
-            def f_wn(inp): 
-                print("here1")
-                print(new_embeddings)
-                print(inp)
-                inp = tf.concat(values = [ new_embeddings[0], inp ], axis = 0 )
-                print(inp)
-                inp = tf.expand_dims(inp,0)  # re-add batch dim of 1
-                l_weight = layers.fully_connected(inp, num_outputs=1, activation_fn=None)[0]
-                l_noise = layers.fully_connected(inp, num_outputs=1, activation_fn=None)[0]
-                return [l_weight,l_noise]
+            # expand in_weights to have same rank as in_embeddings_per_weight
+            in_weights = tf.expand_dims(in_weights, axis=2) # [1, nr_of_weights] -> [1, nr_of_weights, 1]
+            print("in_weights", in_weights)
 
-            in_weights_exp = tf.expand_dims(in_weights,2)
-            print(in_weights_exp)
-            r = tf.concat(values = [ in_embeddings_per_weight, in_weights_exp ], axis = 2 )
-            print("r")
-            print(r)
-            new_embeddings_per_weight = tf.map_fn(f_emb, r[0], back_prop=False, parallel_iterations=100) # r[0] because r contains batch,  new_embeddings_per_weight shape is [nr_of_weights, 1,nr_of_embeddings_per_weight]
-            print("new_embeddings_per_weight") 
-            new_embeddings_per_weight = tf.squeeze(new_embeddings_per_weight,axis=1) 
+            # expand and tile tmp_embeddings to have same rank as in_embeddings_per_weight
+            tmp_embeddings = tf.expand_dims(tmp_embeddings, axis=1)  # [1, nr_of_embeddings_per_weight] -> [1, 1, nr_of_embeddings_per_weight]
+            print("tmp_embeddings", tmp_embeddings)
+            tmp_embeddings = tf.tile(tmp_embeddings, multiples=[1, nr_of_weights, 1]) # [1, 1, nr_of_embeddings_per_weight]  -> [1, nr_of_weights, nr_of_embeddings_per_weight]
+            print("tmp_embeddings", tmp_embeddings)
 
-            print(new_embeddings_per_weight)
-            wn = tf.map_fn(f_wn, new_embeddings_per_weight, dtype=[tf.float32, tf.float32], back_prop=False, parallel_iterations=100)
-            print("wn")
-            print(wn)
+            # concat in_weights and in_embeddings_per_weight and tmp_embeddings
+            in_data_per_weight = tf.concat(values = [ in_weights,  in_embeddings_per_weight, tmp_embeddings ], axis = 2 ) # [1, nr_of_weights, 1] , [1, nr_of_weights, nr_of_embeddings_per_weight] -> [1, nr_of_weights, 1+nr_of_embeddings_per_weight]
+            print("in_data_per_weight", in_data_per_weight)
 
-            new_weights = tf.squeeze(wn[0],axis=1) 
-            new_noise   = tf.squeeze(wn[1],axis=1) 
+            in_data_per_weight  = layers.fully_connected(in_data_per_weight, num_outputs=self.nr_of_embeddings_per_weight*4, activation_fn=tf.tanh)
+            in_data_per_weight  = layers.fully_connected(in_data_per_weight, num_outputs=self.nr_of_embeddings_per_weight*4, activation_fn=tf.tanh)
 
-            new_embeddings_per_weight = tf.expand_dims(new_embeddings_per_weight,0)  # re-add batch dim of 1
-            new_weights = tf.expand_dims(new_weights,0)  # re-add batch dim of 1
-            new_noise = tf.expand_dims(new_noise,0)  # re-add batch dim of 1
+            out_embeddings_per_weight  = layers.fully_connected(in_data_per_weight, num_outputs=self.nr_of_embeddings_per_weight, activation_fn=tf.tanh)
+            out_weights = layers.fully_connected(in_data_per_weight, num_outputs=1, activation_fn=None)
+            out_weights = tf.squeeze(out_weights, axis=2) 
+            out_noise   = layers.fully_connected(in_data_per_weight, num_outputs=1, activation_fn=None)
+            out_noise   = tf.squeeze(out_noise, axis=2) 
 
-            print(new_weights)
-            print(new_noise)
+            out_embeddings       = layers.fully_connected(meta, num_outputs=self.nr_of_embeddings  , activation_fn=tf.tanh)     
+            out_count_factor     = layers.fully_connected(meta, num_outputs=1, activation_fn=tf.tanh)
+            out_timespend_factor = layers.fully_connected(meta, num_outputs=1, activation_fn=tf.tanh)
+            out_steps_factor     = layers.fully_connected(meta, num_outputs=1, activation_fn=tf.tanh)
 
-            new_count_factor     = layers.fully_connected(new_embeddings, num_outputs=1, activation_fn=tf.tanh)
-            new_timespend_factor = layers.fully_connected(new_embeddings, num_outputs=1, activation_fn=tf.tanh)
-            new_steps_factor     = layers.fully_connected(new_embeddings, num_outputs=1, activation_fn=tf.tanh)
+            print("out_embeddings_per_weight", out_embeddings_per_weight)
+            print("out_weights", out_weights)
+            print("out_noise", out_noise)
 
             outputs = [
-                new_embeddings_per_weight,
-                new_weights,
-                new_noise,
-                new_embeddings,
-                new_count_factor,
-                new_timespend_factor,
-                new_steps_factor,
+                out_embeddings_per_weight,
+                out_weights,
+                out_noise,
+                out_embeddings,
+                out_count_factor,
+                out_timespend_factor,
+                out_steps_factor,
             ]
             self._run = tf_util.function(inputs, outputs)
             return scope
