@@ -42,8 +42,10 @@ class Experiment_Admin(admin.ModelAdmin):
     list_filter = ('status',)
 
 class Episode_Admin(admin.ModelAdmin):
-    list_display = ('id', "created", 'status', "version", "timespend", "fitness_min", "fitness_max", "fitness_avg", "fitness_median", "fitness_top10", "environment", "architecture", "optimiser", "experimentSet", "experiment", )
+    list_display = ('id', "created", 'status', "version", "timespend", "fitness_min", "fitness_max", "fitness_avg", "fitness_median", "fitness_top10", "subsettings_EpisodeNoisyExecutions_max_timespend", "subsettings_EpisodeNoisyExecutions_max_steps", "subsettings_EpisodeNoisyExecutions_max", "environment", "architecture", "optimiser", "experimentSet", "experiment", )
     list_filter = ('status',)
+
+
 
 class ExperimentNoisyExecution_Admin(admin.ModelAdmin):
     list_display = ('id', "created", 'status', "timespend", "noiseseed",  "fitness", "fitness_rank", "fitness_calc_key","fitness_calc_value", "client", "environment", "architecture", "optimiser", "experimentSet", "experiment", "episode" )
