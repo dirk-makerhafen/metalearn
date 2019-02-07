@@ -592,6 +592,10 @@ class OptimiserMetaES(BaseOptimiser):
             "steps" : 1,
             "timespend" : time.time() - start_t,
         },2)
+
+        print("optimiserMetaData")
+        print(optimiserMetaData)
+
         optimiserData =  pickle.dumps({
             "embeddings_per_weight" : new_embeddings_per_weight,
             "embeddings" : new_embeddings,
@@ -603,6 +607,8 @@ class OptimiserMetaES(BaseOptimiser):
         from ..models import ExperimentSet
         from ..models import EpisodeNoisyExecution
         start_t = time.time()
+        print("OptimiserMetaES.optimise")
+        print(episode)
 
         optimiserMetaData = pickle.loads(episode.optimiserMetaData)
         optimiserData = pickle.loads(episode.optimiserData)
@@ -614,6 +620,9 @@ class OptimiserMetaES(BaseOptimiser):
         optimiser_noisyExecution = EpisodeNoisyExecution.objects.get(id = optimiserMetaData["noisyExecution_id"])
         optimiser_Arch = optimiser_noisyExecution.architecture.getInstance()
         opti_weightNoise = optimiser_noisyExecution.episode.weightsNoise
+        print("optimiser opti_weightNoise")
+        print(optimiser_noisyExecution)
+        print(opti_weightNoise)
         opti_weights = opti_weightNoise[0] + (opti_weightNoise[1] * createNoise(optimiser_noisyExecution.noiseseed, len(opti_weightNoise[0] ) ) )
         input_space, output_space = self._getInputOutputSpaces()
         optimiser_Arch.initialize(input_space, output_space, opti_weights )
@@ -682,7 +691,7 @@ class OptimiserMetaES(BaseOptimiser):
         ])
         optimiserMetaData =  pickle.dumps({
             "parameters": self.parameters,
-            "noisyExecution_id" : noisyExecution.id,
+            "noisyExecution_id" : optimiser_noisyExecution.id,
             "steps" : optimiserMetaData["steps"] + 1,
             "timespend" : optimiserMetaData["timespend"] + (time.time() - start_t),
         },2)

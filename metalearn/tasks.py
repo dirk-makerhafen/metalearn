@@ -133,17 +133,17 @@ def on_Experiment_created(experiment_id, experimentSet_id):
     episode.weightsNoise, episode.optimiserMetaData, episode.optimiserData, count_factor, timespend_factor, steps_factor = result
 
 
-    eset = next_episode.experimentSet          
+    eset = episode.experimentSet          
     
     #factors are -1 .. 1 
     h = ( eset.subsettings_EpisodeNoisyExecutions_max           - eset.subsettings_EpisodeNoisyExecutions_min           ) / 2.0
-    next_episode.subsettings_EpisodeNoisyExecutions_max           = eset.subsettings_EpisodeNoisyExecutions_min            +  h + ( h  * count_factor      ) 
+    episode.subsettings_EpisodeNoisyExecutions_max           = eset.subsettings_EpisodeNoisyExecutions_min            +  h + ( h  * count_factor      ) 
 
     h = ( eset.subsettings_EpisodeNoisyExecutions_max_steps     - eset.subsettings_EpisodeNoisyExecutions_min_steps     ) / 2.0
-    next_episode.subsettings_EpisodeNoisyExecutions_max_steps     = eset.subsettings_EpisodeNoisyExecutions_min_steps      +  h + ( h * steps_factor      )
+    episode.subsettings_EpisodeNoisyExecutions_max_steps     = eset.subsettings_EpisodeNoisyExecutions_min_steps      +  h + ( h * steps_factor      )
 
     h = ( eset.subsettings_EpisodeNoisyExecutions_max_timespend - eset.subsettings_EpisodeNoisyExecutions_min_timespend ) / 2.0
-    next_episode.subsettings_EpisodeNoisyExecutions_max_timespend = eset.subsettings_EpisodeNoisyExecutions_min_timespend  +  h + ( h * timespend_factor  )
+    episode.subsettings_EpisodeNoisyExecutions_max_timespend = eset.subsettings_EpisodeNoisyExecutions_min_timespend  +  h + ( h * timespend_factor  )
     episode.save()
 
 
@@ -268,7 +268,7 @@ def on_Episode_done(episode_id, experiment_id, experimentSet_id):
     next_episode.weightsNoise, next_episode.optimiserMetaData, next_episode.optimiserData, count_factor, timespend_factor, steps_factor = optimiserInstance.optimise(current_episode)
 
     # clean hd space
-    current_episode.weightsNoise = numpy.array([])
+    #current_episode.weightsNoise = numpy.array([])
     current_episode.optimiserData = pickle.dumps({})
 
     eset = next_episode.experimentSet          
