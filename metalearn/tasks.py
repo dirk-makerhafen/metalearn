@@ -29,7 +29,7 @@ def rank_and_center(numbers):
 
 # ExperimentSet
 
-@shared_task
+@shared_task( autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
 def on_ExperimentSet_created(experimentSet_id):
     from .models import ExperimentSet
     from .models import Experiment
@@ -63,8 +63,10 @@ def on_ExperimentSet_created(experimentSet_id):
         experiment.optimiser    = optimiser_set.optimiser
         experiment.save()
 
+    ExperimentSet.objects.filter(id = experimentSet_id).update(on_created_executed=True)
 
-@shared_task
+
+@shared_task( autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
 def on_ExperimentSet_done(experimentSet_id):
     from .models import ExperimentSet
     from .models import Experiment
@@ -95,16 +97,17 @@ def on_ExperimentSet_done(experimentSet_id):
         
     for experiment in experiments:  
         combinationid = "%s_%s" % ( experiment.environment.id, experiment.architecture.id ) 
-        some_episode = experiment.episodes.all()[0]
-        optimiserInstance = some_episode.optimiser.getInstance()
-        optimiserInstance.reward(some_episode, combinations_fitnesses[combinationid][indexes[combinationid]])
+        latest_episode = [e for e in experiment.episodes.all()][-1]
+        optimiserInstance = latest_episode.optimiser.getInstance()
+        optimiserInstance.reward(latest_episode, combinations_fitnesses[combinationid][indexes[combinationid]])
         indexes[combinationid] += 1
 
+    ExperimentSet.objects.filter(id = experimentSet_id).update(on_done_executed=True)
 
 
 # Experiment
 
-@shared_task
+@shared_task( autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
 def on_Experiment_created(experiment_id, experimentSet_id):
     from .models import Experiment
     from .models import Episode
@@ -146,8 +149,10 @@ def on_Experiment_created(experiment_id, experimentSet_id):
     episode.subsettings_EpisodeNoisyExecutions_max_timespend = eset.subsettings_EpisodeNoisyExecutions_min_timespend  +  h + ( h * timespend_factor  )
     episode.save()
 
+    Experiment.objects.filter(id = experiment_id).update(on_created_executed=True)
 
-@shared_task
+
+@shared_task( autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
 def on_Experiment_done(experiment_id, experimentSet_id):
     from .models import ExperimentSet
     from .models import Experiment
@@ -169,18 +174,19 @@ def on_Experiment_done(experiment_id, experimentSet_id):
     experiment.save()
 
     experiments_to_go = Experiment.objects.filter(experimentSet_id = experimentSet_id).filter(~Q(status = "done")).count()
-    if experiments_to_go > 0:
-        return  
+    if experiments_to_go == 0:
+        
+        experimentSet_done = ExperimentSet.objects.filter(id = experimentSet_id).filter(~Q(status = "done")).update(status="done")
 
-    experimentSet_done = ExperimentSet.objects.filter(id = experimentSet_id).filter(~Q(status = "done")).update(status="done")
-    if experimentSet_done == 1:
-        on_commit(lambda: on_ExperimentSet_done.delay(experimentSet_id))
+        if experimentSet_done == 1:
+            on_commit(lambda: on_ExperimentSet_done.delay(experimentSet_id))
 
-    
+    Experiment.objects.filter(id = experiment_id).update(on_done_executed=True)
+
 
 # Episode
 
-@shared_task
+@shared_task( autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
 def on_Episode_created(episode_id, experiment_id, experimentSet_id):
     from .models import Episode
     from .models import EpisodeNoisyExecution
@@ -200,7 +206,9 @@ def on_Episode_created(episode_id, experiment_id, experimentSet_id):
         episodeNoisyExecution.number = number
         episodeNoisyExecution.save()
 
-@shared_task
+    Episode.objects.filter(id = episode_id).update(on_created_executed=True)
+
+@shared_task( autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
 def on_Episode_done(episode_id, experiment_id, experimentSet_id):
     from .models import Episode
     from .models import Experiment
@@ -212,7 +220,6 @@ def on_Episode_done(episode_id, experiment_id, experimentSet_id):
     # calc fitness via fitness_calc_key if needed
     ids = [x[0] for x in current_episode.noisyExecutions.all().values_list('id').distinct()]
     fitness_calc_keys = current_episode.noisyExecutions.filter(~Q(fitness_calc_key = "")).values_list("fitness_calc_key").distinct()
-    print(fitness_calc_keys)
     for fitness_calc_key in fitness_calc_keys:
         nes = EpisodeNoisyExecution.filter(fitness_calc_key = fitness_calc_key).values_list("id", "fitness_calc_value").distinct()
         fnes = [x[1] for x in nes]
@@ -249,62 +256,68 @@ def on_Episode_done(episode_id, experiment_id, experimentSet_id):
             on_commit(lambda: on_Experiment_done.delay(experiment_id, experimentSet_id))
 
         # clean hd space
-        #current_episode.weightsNoise = numpy.array([])
+        current_episode.weightsNoise = numpy.array([])
         current_episode.optimiserData = pickle.dumps({})
-        return
+        
+    else:
+        # create next episode
+        next_episode = Episode()
+        next_episode.environment = current_episode.environment
+        next_episode.architecture = current_episode.architecture
+        next_episode.optimiser = current_episode.optimiser
+        next_episode.experimentSet = current_episode.experimentSet
+        next_episode.experiment = current_episode.experiment
+        next_episode.version = current_episode.version + 1
+        next_episode.public = current_episode.public
 
-    # create next episode
-    next_episode = Episode()
-    next_episode.environment = current_episode.environment
-    next_episode.architecture = current_episode.architecture
-    next_episode.optimiser = current_episode.optimiser
-    next_episode.experimentSet = current_episode.experimentSet
-    next_episode.experiment = current_episode.experiment
-    next_episode.version = current_episode.version + 1
-    next_episode.public = current_episode.public
+        # run optimiser
+        optimiserInstance = next_episode.optimiser.getInstance()
+        next_episode.weightsNoise, next_episode.optimiserMetaData, next_episode.optimiserData, count_factor, timespend_factor, steps_factor = optimiserInstance.optimise(current_episode)
 
-    # run optimiser
-    optimiserInstance = next_episode.optimiser.getInstance()
-    next_episode.weightsNoise, next_episode.optimiserMetaData, next_episode.optimiserData, count_factor, timespend_factor, steps_factor = optimiserInstance.optimise(current_episode)
+        # clean hd space
+        current_episode.weightsNoise = numpy.array([])
+        current_episode.optimiserData = pickle.dumps({})
 
-    # clean hd space
-    current_episode.weightsNoise = numpy.array([])
-    current_episode.optimiserData = pickle.dumps({})
+        eset = next_episode.experimentSet          
+        
+        #factors are -1 .. 1 
+        h = ( eset.subsettings_EpisodeNoisyExecutions_max           - eset.subsettings_EpisodeNoisyExecutions_min           ) / 2.0
+        next_episode.subsettings_EpisodeNoisyExecutions_max           = eset.subsettings_EpisodeNoisyExecutions_min            +  h + ( h  * count_factor      ) 
 
-    eset = next_episode.experimentSet          
-    
-    #factors are -1 .. 1 
-    h = ( eset.subsettings_EpisodeNoisyExecutions_max           - eset.subsettings_EpisodeNoisyExecutions_min           ) / 2.0
-    next_episode.subsettings_EpisodeNoisyExecutions_max           = eset.subsettings_EpisodeNoisyExecutions_min            +  h + ( h  * count_factor      ) 
+        h = ( eset.subsettings_EpisodeNoisyExecutions_max_steps     - eset.subsettings_EpisodeNoisyExecutions_min_steps     ) / 2.0
+        next_episode.subsettings_EpisodeNoisyExecutions_max_steps     = eset.subsettings_EpisodeNoisyExecutions_min_steps      +  h + ( h * steps_factor      )
 
-    h = ( eset.subsettings_EpisodeNoisyExecutions_max_steps     - eset.subsettings_EpisodeNoisyExecutions_min_steps     ) / 2.0
-    next_episode.subsettings_EpisodeNoisyExecutions_max_steps     = eset.subsettings_EpisodeNoisyExecutions_min_steps      +  h + ( h * steps_factor      )
+        h = ( eset.subsettings_EpisodeNoisyExecutions_max_timespend - eset.subsettings_EpisodeNoisyExecutions_min_timespend ) / 2.0
+        next_episode.subsettings_EpisodeNoisyExecutions_max_timespend = eset.subsettings_EpisodeNoisyExecutions_min_timespend  +  h + ( h * timespend_factor  )
+        next_episode.save()
 
-    h = ( eset.subsettings_EpisodeNoisyExecutions_max_timespend - eset.subsettings_EpisodeNoisyExecutions_min_timespend ) / 2.0
-    next_episode.subsettings_EpisodeNoisyExecutions_max_timespend = eset.subsettings_EpisodeNoisyExecutions_min_timespend  +  h + ( h * timespend_factor  )
-    next_episode.save()
+    Episode.objects.filter(id = episode_id).update(on_done_executed=True)
 
 
 
 # EpisodeNoisyExecution
-@shared_task
+@shared_task( autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
 def on_NoisyExecution_created(noisyExecution_id, episode_id, experiment_id, experimentSet_id):
-    pass
+    EpisodeNoisyExecution.objects.filter(id = noisyExecution_id).update(on_created_executed=True)
 
-@shared_task
+
+@shared_task( autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
 def on_NoisyExecution_done(noisyExecution_id, episode_id, experiment_id, experimentSet_id):
     from .models import EpisodeNoisyExecution
     from .models import Episode
     
     episode = Episode.objects.get(id=episode_id)
     noisyExecutions_done = EpisodeNoisyExecution.objects.filter(episode_id = episode_id).filter(status = "done").count()
-    if noisyExecutions_done < episode.subsettings_EpisodeNoisyExecutions_max:
-        return
 
-    episode_done = Episode.objects.filter(id = episode_id).filter(~Q(status = "done")).update(status="done")
-    if episode_done == 1:
-        on_Episode_done.delay(episode_id, experiment_id, experimentSet_id)
-    
+    if noisyExecutions_done >= episode.subsettings_EpisodeNoisyExecutions_max:
+
+        episode_done = Episode.objects.filter(id = episode_id).filter(~Q(status = "done")).update(status="done")
+
+        if episode_done == 1:
+            on_Episode_done.delay(episode_id, experiment_id, experimentSet_id)
+
+    EpisodeNoisyExecution.objects.filter(id = noisyExecution_id).update(on_done_executed=True)
+
 
 
 # CRON
@@ -322,6 +335,22 @@ def cron_clean_locked_hanging():
         noisyExecution_hang.status = "idle"
         noisyExecution_hang.save()
     
+
+def clean_hd():
+    max_diskspace = 200   # in gigabyte
+    used_diskspace = 190  # in gigabyte
+    
+    percent_free = 10    # keep 10% of max available
+    max_diskspace = max_diskspace - (max_diskspace / 100.0 * percent_free)
+
+    if used_diskspace > max_diskspace:
+        print("Must clean diskspace")
+        episodes = Episode.objects.filter(status="done", hasFolder=True).filter(~Q(next=None)).order_by("updated")[100:]
+        for episode in episodes:
+            episode.hasFolder = False
+            episode.save()
+
+
 
 '''
 @shared_task

@@ -239,8 +239,8 @@ class Architecture_MetaES(Architecture):
             
         outputs =  self._run(*inputs)
         for i in range(0,len(outputs)):
-            outputs[i] = outputs[i][0]#.astype(np.float32)# remove batch dim
-        outputs[2] = outputs[2]#.astype(np.float16)    # noiselevel is float16 
+            outputs[i] = outputs[i][0].astype(np.float32)# remove batch dim
+        outputs[2] = outputs[2].astype(np.float16)    # noiselevel is float16 
         return outputs
 
 # create these if your db is empty

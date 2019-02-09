@@ -1,0 +1,128 @@
+{% extends 'cruds/detail.html' %}
+{% load i18n %}
+{% load crud_tags %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-xs-12">
+            <div class="box">
+                {% if url_update and 'update' in views_available and crud_perms.update %}
+                    <div class="box-header">
+                        <a href="{{ url_update }}{{getparams}}" class="btn btn-primary" >{% trans "Edit" %}</a>
+                    </div>
+                {% endif %}
+                <div class="box-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <th>{% trans 'Label' %}</th><th>{% trans 'Value' %}</th>
+                            </thead>
+                            <tbody>
+                                {% crud_fields object fields %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% if url_list and 'list' in views_available and crud_perms.list %}
+                    <div class="box-footer">
+                        <a href="{{ url_list }}{{getparams}}" class="btn btn-primary">{% trans "Back to list" %}</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+
+    <div class="row">
+        <div class="col-md-12"> 
+            <div class="box">
+                <div class="box-header">
+                    <h3 class="box-title">NoisyExecutions of this Episode</h3>
+                </div>
+                <div class="box-body">
+                    <div id="example2_wrapper" class="dataTables_wrapper form-inline dt-bootstrap">
+                        <div class="row">
+                            <div class="col-sm-6"></div>
+                            <div class="col-sm-6"></div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <table id="ExperimentsTable" class="table table-bordered table-hover dataTable" role="grid">
+                                    <thead>
+                                        <tr role="row">
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Id</th>
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Created</th>
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Updated</th>
+
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Number </th>
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Noiseseed </th>
+
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Status</th>
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Steps</th>
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Timespend</th>
+
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Fitness</th>
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Fitness Rank</th>
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Fitness Calc Key</th>
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Fitness Calc Value</th>
+                                            
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Client </th>
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Lock </th>
+
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> On Created Executed</th>
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> On Done Executed</th>
+                                            <th class="" tabindex="0" rowspan="1" colspan="1"> Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>                       
+                                        {% for noisyExecution in object.noisyExecutions.all %}
+                                            <tr>
+                                                <td><a href="/metalearn/episodenoisyexecution/{{ noisyExecution.id }}">{{ noisyExecution.id }}</a></td>
+                                                <td>{{ noisyExecution.created }}</td>
+                                                <td>{{ noisyExecution.updated }}</td>
+
+                                                <td>{{ noisyExecution.number }}</td>
+                                                <td>{{ noisyExecution.noiseseed }}</td>
+
+                                                <td>{{ noisyExecution.status }}</td>
+                                                <td>{{ noisyExecution.steps }}</td>
+                                                <td>{{ noisyExecution.timespend }}</td>
+
+                                                <td>{{ noisyExecution.fitness }}</td>
+                                                <td>{{ noisyExecution.fitness_rank }}</td>
+                                                <td>{{ noisyExecution.fitness_calc_key }}</td>
+                                                <td>{{ noisyExecution.fitness_calc_value }}</td>
+
+                                                <td>{{ noisyExecution.client }}</td>
+                                                <td>{{ noisyExecution.lock }}</td>
+
+                                                <td>{{ noisyExecution.on_created_executed }}</td>
+                                                <td>{{ noisyExecution.on_done_executed }}</td>
+                                                <td> 
+                                                    <a href="/metalearn/episodenoisyexecution/{{ noisyExecution.id }}" class="btn btn-success">{% trans "Show" %}</a>
+                                                    <a href="/metalearn/episodenoisyexecution/{{ noisyExecution.id }}/update" class="btn btn-primary">{% trans "Edit" %}</a>
+                                                    {% if noisyExecution.client.value is not empty or noisyExecution.status != "idle" %}
+                                                        <a href="/metalearn/episodenoisyexecution/{{ noisyExecution.id }}/clearlock" class="btn btn-warning">{% trans "Clear Lock" %}</a>  
+                                                    {% endif  %}
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- /.box-body -->
+            </div>            
+        </div> <!-- /col-md-12 -->
+    </div> <!-- /row -->
+
+<script>
+    $(document).ready( function () {
+        $('#ExperimentsTable').DataTable({ "searching": false });
+        $('#ExperimentSetsTable').DataTable({ "searching": false });
+    });
+</script>
+
+{% endblock %}

@@ -47,11 +47,25 @@ class Environment(models.Model):
     classargs = models.CharField( max_length=2000,default="[]") 
 
     broken = models.BooleanField(default=False)  # is set if env is missing on filesystem
-
+ 
     # experimentSets -> ExperimentSet
     # experiments -> Experiment
-    # noisyExecutions -> EpisodeNoisyExecution
     # episodes -> Episode
+    # noisyExecutions -> EpisodeNoisyExecution
+
+    @property
+    def experimentSets_count(self):
+        return self.experimentSets.all().count()
+    @property
+    def experiments_count(self):
+        return self.experiments.all().count()
+    @property
+    def episodes_count(self):
+        return self.episodes.all().count()
+    @property
+    def noisyExecutions_count(self):
+        return self.noisyExecutions.all().count()
+
 
     class Meta:
         unique_together = ('classname', 'classargs',)
@@ -63,8 +77,9 @@ class Environment(models.Model):
         for v in json.loads(self.classargs):
             a[v[0]] = v[1]
         return _class(**a)
+
     def __str__(self):
-        return "%s Class:%s Args:%s" % (self.name, self.classname, self.classargs) 
+        return "%s:%s" % (self.id, self.name) 
 
 
 class Architecture(models.Model):
@@ -81,8 +96,22 @@ class Architecture(models.Model):
 
     # experimentSets -> ExperimentSet
     # experiments -> Experiment
-    # noisyExecutions -> EpisodeNoisyExecution
     # episodes -> Episode
+    # noisyExecutions -> EpisodeNoisyExecution
+
+    @property
+    def experimentSets_count(self):
+        return self.experimentSets.all().count()
+    @property
+    def experiments_count(self):
+        return self.experiments.all().count()
+    @property
+    def episodes_count(self):
+        return self.episodes.all().count()
+    @property
+    def noisyExecutions_count(self):
+        return self.noisyExecutions.all().count()
+
 
     class Meta:
         unique_together = ('classname', 'classargs',)
@@ -95,7 +124,7 @@ class Architecture(models.Model):
         return _class(**a)
 
     def __str__(self):
-        return "%s Class:%s Args:%s" % (self.name, self.classname, self.classargs) 
+        return "%s:%s" % (self.id, self.name) 
 
 
 class Optimiser(models.Model):
@@ -111,6 +140,22 @@ class Optimiser(models.Model):
     broken = models.BooleanField(default=False)  # is set if env is missing on filesystem
 
     # experimentSets -> ExperimentSet
+    # experiments -> Experiment
+    # episodes -> Episode
+    # noisyExecutions -> EpisodeNoisyExecution
+
+    @property
+    def experimentSets_count(self):
+        return self.experimentSets.all().count()
+    @property
+    def experiments_count(self):
+        return self.experiments.all().count()
+    @property
+    def episodes_count(self):
+        return self.episodes.all().count()
+    @property
+    def noisyExecutions_count(self):
+        return self.noisyExecutions.all().count()
 
     class Meta:
         unique_together = ('classname', 'classargs',)
@@ -124,7 +169,7 @@ class Optimiser(models.Model):
         
 
     def __str__(self):
-        return "%s Class:%s Args:%s" % (self.name, self.classname, self.classargs) 
+        return "%s:%s" % (self.id, self.name) 
 
 
 class ExperimentSet(models.Model):
@@ -157,10 +202,18 @@ class ExperimentSet(models.Model):
     # stats
     status = models.CharField(max_length= 200, choices=ExperimentSet_STATUS_ENUM, default="active")
     timespend =  models.FloatField(default = 0) # sum of Experiment.timespend ,  calculated on_ExperimentSet_done
+    on_created_executed = models.BooleanField(default=False) # set after task.on_ExperimentSet_created is done
+    on_done_executed = models.BooleanField(default=False)# set after task.on_ExperimentSet_done is done
 
+    @property
+    def experiments_count(self):
+        return self.experiments.all().count()
 
     #experiments -> Experiment
-    
+
+    def __str__(self):
+        return "%s:%s" % (self.id, self.name) 
+
     def save(self, *args, **kwargs):
         isNew = self.id == None
         super(ExperimentSet, self).save(*args, **kwargs)      
@@ -204,10 +257,22 @@ class Experiment(models.Model):
     fitness_avg   =  models.FloatField(default = 0) # calculated on_Experiment_done
     fitness_median=  models.FloatField(default = 0) # calculated on_Experiment_done
     fitness_top10 =  models.FloatField(default = 0) # calculated on_Experiment_done
-
+    on_created_executed = models.BooleanField(default=False) # set after task.on_Experiment_created is done
+    on_done_executed = models.BooleanField(default=False)# set after task.on_Experiment_done is done
 
     # episodes -> Episode
     # noisyExecutions -> EpisodeNoisyExecution
+
+    @property
+    def episodes_count(self):
+        return self.episodes.all().count()
+    @property
+    def noisyExecutions_count(self):
+        return self.noisyExecutions.all().count()
+
+
+    def __str__(self):
+        return "Id:%s" % (self.id) 
 
     def save(self, *args, **kwargs):
         isNew = self.id == None
@@ -230,7 +295,7 @@ class Episode(models.Model):
     optimiser    = models.ForeignKey(Optimiser   , on_delete=models.CASCADE, related_name='episodes',db_index=True)
     experimentSet = models.ForeignKey(ExperimentSet, on_delete=models.CASCADE, related_name='episodes',db_index=True)
     experiment  = models.ForeignKey(Experiment, on_delete=models.CASCADE, related_name='episodes',db_index=True)
-
+    
     # Settings for EpisodeNoisyExecutions created by this Episode
     subsettings_EpisodeNoisyExecutions_max = models.BigIntegerField(default=100 ) # nr of EpisodeNoisyExecution per Episode per Experiment  #actual max number of noisyExecutions for this episode, generated, between experimentSet.episodeNoisyExecutions_count_min and experimentSet.episodeNoisyExecutions_count_max via a factor given by the optimiser on_Experiment_created and on_Episode_done
     subsettings_EpisodeNoisyExecutions_max_steps = models.BigIntegerField(default=10000)  # steps per NoisyExecutions
@@ -247,11 +312,23 @@ class Episode(models.Model):
     fitness_avg   =  models.FloatField(default = 0) # calculated on_Episode_done
     fitness_median=  models.FloatField(default = 0) # calculated on_Episode_done
     fitness_top10 =  models.FloatField(default = 0) # calculated on_Episode_done
+    on_created_executed = models.BooleanField(default=False) # set after task.on_Episode_created is done
+    on_done_executed = models.BooleanField(default=False)# set after task.on_Episode_done is done
+
+
+    class Meta():
+        ordering = ['version']
+
 
     #noisyExecutions -> EpisodeNoisyExecution
 
+    @property
+    def noisyExecutions_count(self):
+        return self.noisyExecutions.all().count()
+
+
     def __str__(self):
-        return "Episode Id:%s, version:%s" % (self.id, self.version) 
+        return "Id:%s Version:%s" % (self.id, self.version) 
 
 
     @property
@@ -342,6 +419,9 @@ class EpisodeNoisyExecution(models.Model):
     fitness_calc_value   = models.FloatField(default = 0)
     # if fitness_calc_key and value are given, fitness and fitness_rank are calculated on_Episode_done as the center (-1..1) rank of this fitness_calc_value in comparision 
     # to ALL other EpisodeNoisyExecution that have the same fitness_calc_key. this value is outdated right after calculating it, so use only one or recalc. 
+    on_created_executed = models.BooleanField(default=False) # set after task.on_EpisodeNoisyExecution_created is done
+    on_done_executed = models.BooleanField(default=False)# set after task.on_EpisodeNoisyExecution_done is done
+
 
     def save(self, *args, **kwargs):
         isNew = self.id == None

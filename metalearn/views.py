@@ -2,6 +2,8 @@ from django.shortcuts import render
 from django.http import HttpResponse, HttpResponseRedirect
 from django.template import loader
 from django.views.decorators.csrf import csrf_exempt
+from django import forms
+from collections import OrderedDict
 
 from django.urls import reverse
 from django.http import JsonResponse
@@ -13,11 +15,265 @@ import numpy
 from django.db import connection
 import datetime
 import uuid
+from django.conf.urls import url, include
+from cruds_adminlte import utils
+
+
 # Create your views here.
 
 from django.http import HttpResponse
 
 from . import models
+from . import tasks
+
+from cruds_adminlte.crud import CRUDView
+from cruds_adminlte.inline_crud import InlineAjaxCRUD
+
+
+# Monkey patch because django-crud-adminlte because git 0.0.13 != pip 0.0.13
+import cruds_adminlte.utils
+def get_fields(model, include=None):
+    """
+    Returns ordered dict in format 'field': 'verbose_name'
+    """
+    fields = OrderedDict()
+    info = model._meta
+    if include:  # self.model._meta.get_field(fsm_field_name)
+        selected = {}
+        for name in include:
+            if '__' in name:
+                related_model, field_name = name.split('__', 1)
+                try:
+                    selected[name] = \
+                        info.get_field_by_name(related_model)[0].\
+                        related_model._meta.get_field_by_name(name)[0]
+                except:
+                    selected[name] = info.get_field(related_model).\
+                            related_model._meta.get_field(field_name)
+            else:
+                try:
+                    selected[name] = info.get_field_by_name(name)[0]
+                except:
+                    selected[name] = info.get_field(name)
+    else:
+        try:
+            selected = {field.name: field for field in info.fields
+                        if field.editable}
+        except:
+            # Python < 2.7
+            selected = dict((field.name, field) for field in info.fields
+                            if field.editable)
+    for name, field in selected.items():
+        if field.__class__.__name__ == 'ManyToOneRel':
+            field.verbose_name = field.related_name
+        fields[name] = [
+            field.verbose_name.title(),
+            field.get_internal_type]
+    if include:
+        fields = OrderedDict((key, fields[key]) for key in include)
+    return fields
+cruds_adminlte.utils.get_fields = get_fields
+
+
+
+class EnvironmentView(CRUDView):
+    model = models.Environment
+    template_name_base = "Environment"
+    search_fields = ['classname__contains', 'classargs__contains', 'name__contains', 'description__contains']
+    split_space_search = ' '
+    list_filter = ['id','classname', 'name']
+    list_fields = ['id', 'name', 'classname','classargs','description', 'broken']
+
+
+class ArchitectureView(CRUDView):
+    model = models.Architecture
+    template_name_base = "Architecture"
+    search_fields = ['classname__contains', 'classargs__contains', 'name__contains', 'description__contains']
+    split_space_search = ' '
+    list_filter = ['id','classname', 'name']
+    list_fields = ['id', 'name', 'classname','classargs','description', 'broken']
+
+
+class OptimiserView(CRUDView):
+    model = models.Optimiser
+    template_name_base = "Optimiser"
+    search_fields = ['classname__contains', 'classargs__contains', 'name__contains', 'description__contains']
+    split_space_search = ' '
+    list_filter = ['id','classname', 'name']
+    list_fields = ['id', 'name', 'classname','classargs','description', 'broken']
+
+
+class ExperimentSetView(CRUDView):
+    model = models.ExperimentSet
+    template_name_base = "ExperimentSet"
+
+    list_filter = [ 
+        'id', 
+        'status',
+    ]
+    list_fields = [ 
+        'id', 'created', 'updated', 
+        'name', 'description', 
+
+        'subsettings_Experiments_max',
+        'subsettings_Episodes_max',
+        #'subsettings_EpisodeNoisyExecutions_min',
+        #'subsettings_EpisodeNoisyExecutions_max',
+        #'subsettings_EpisodeNoisyExecutions_min_steps',
+        #'subsettings_EpisodeNoisyExecutions_max_steps',
+        #'subsettings_EpisodeNoisyExecutions_min_timespend',
+        #'subsettings_EpisodeNoisyExecutions_max_timespend',
+
+        'public', 'status', 'timespend', 
+        'on_created_executed', 'on_done_executed'
+    ]
+
+    
+    def get_urls(self):
+        pre = ""
+        try:
+            if self.cruds_url:
+                pre = "%s/" % self.cruds_url
+        except AttributeError:
+            pre = ""
+        base_name = "%s%s/%s" % (pre, self.model._meta.app_label, self.model.__name__.lower())
+
+        urls = CRUDView.get_urls(self)
+        urls.append(
+            url(r"^%s/(?P<pk>[^/]+)/trigger_on_done$" % (base_name,),
+            self.trigger_on_done,
+            name=utils.crud_url_name(self.model, 'trigger_on_done', prefix=self.urlprefix))
+        )   
+        return urls
+
+    def trigger_on_done(self, request, pk):
+        tasks.on_ExperimentSet_done.delay(pk)
+        return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
+
+
+
+
+class ExperimentView(CRUDView):
+    model = models.Experiment
+    template_name_base = "Experiment"
+    list_filter = [ 
+        'id', 
+        'environment', 'architecture', 'optimiser', 'experimentSet', 
+        'status',
+    ]
+    list_fields = [ 
+        'id', 'created', 'updated', 
+        'environment', 'architecture', 'optimiser', 'experimentSet',  
+        'public', 'status', 'timespend', 
+        'fitness_min', 'fitness_max', 'fitness_avg', 'fitness_median', 'fitness_top10' ,
+        'on_created_executed', 'on_done_executed'
+    ]
+
+    def get_urls(self):
+        pre = ""
+        try:
+            if self.cruds_url:
+                pre = "%s/" % self.cruds_url
+        except AttributeError:
+            pre = ""
+        base_name = "%s%s/%s" % (pre, self.model._meta.app_label, self.model.__name__.lower())
+
+        urls = CRUDView.get_urls(self)
+        urls.append(
+            url(r"^%s/(?P<pk>[^/]+)/trigger_on_done$" % (base_name,),
+            self.trigger_on_done,
+            name=utils.crud_url_name(self.model, 'trigger_on_done', prefix=self.urlprefix))
+        )   
+        return urls
+
+    def trigger_on_done(self, request, pk):
+        ex = models.Experiment.objects.get(id=pk)
+        tasks.on_Experiment_done.delay(ex.id, ex.experimentSet_id)
+        return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
+
+
+class EpisodeView(CRUDView):
+    model = models.Episode
+    template_name_base = "Episode"
+    list_filter = [ 
+        'id', 
+        'environment', 'architecture', 'optimiser', 'experimentSet', 'experiment', 
+        'status',
+    ]
+    list_fields = [ 
+        'id', 'created', 'updated', 'version', 
+        'environment', 'architecture', 'optimiser', 'experimentSet', 'experiment', 
+        'public', 'status', 'hasFolder', 'timespend', 
+        #'subsettings_EpisodeNoisyExecutions_max', 'subsettings_EpisodeNoisyExecutions_max_steps', 'subsettings_EpisodeNoisyExecutions_max_timespend', 
+        'fitness_min', 'fitness_max', 'fitness_avg', 'fitness_median', 'fitness_top10' ,
+        'on_created_executed', 'on_done_executed'
+    ]
+
+
+    def get_urls(self):
+        pre = ""
+        try:
+            if self.cruds_url:
+                pre = "%s/" % self.cruds_url
+        except AttributeError:
+            pre = ""
+        base_name = "%s%s/%s" % (pre, self.model._meta.app_label, self.model.__name__.lower())
+
+        urls = CRUDView.get_urls(self)
+        urls.append(
+            url(r"^%s/(?P<pk>[^/]+)/trigger_on_done$" % (base_name,),
+            self.trigger_on_done,
+            name=utils.crud_url_name(self.model, 'trigger_on_done', prefix=self.urlprefix))
+        )   
+        return urls
+
+    def trigger_on_done(self, request, pk):
+        ep = models.Episode.objects.get(id=pk)
+        tasks.on_Episode_done.delay(ep.id, ep.experiment_id, ep.experimentSet_id)
+        return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
+
+
+
+class EpisodeNoisyExecutionView(CRUDView):
+    model = models.EpisodeNoisyExecution
+    template_name_base = "EpisodeNoisyExecution"
+
+    list_filter = [ 
+        'id', 
+        'environment', 'architecture', 'optimiser', 'experimentSet', 'experiment', 'episode', 
+        'status', 'client' 
+    ]
+    list_fields = [ 
+        'id', 'created', 'updated', 'number', 
+        'environment', 'architecture', 'optimiser', 'experimentSet', 'experiment', 'episode', 
+        'lock', 'client', 
+        'status', 'timespend', 'steps', 
+        'fitness', 'fitness_rank', 'fitness_calc_key', 'fitness_calc_value', 
+        'on_created_executed', 'on_done_executed'
+    ]
+
+    
+    def get_urls(self):
+        pre = ""
+        try:
+            if self.cruds_url:
+                pre = "%s/" % self.cruds_url
+        except AttributeError:
+            pre = ""
+        base_name = "%s%s/%s" % (pre, self.model._meta.app_label, self.model.__name__.lower())
+
+        urls = CRUDView.get_urls(self)
+        urls.append(
+            url(r"^%s/(?P<pk>[^/]+)/clearlock$" % (base_name,),
+            self.clearlock,
+            name=utils.crud_url_name(self.model, 'clearlock', prefix=self.urlprefix))
+        )   
+        return urls
+
+    def clearlock(self, request, pk):
+        models.EpisodeNoisyExecution.objects.filter(id=pk).update(status = 'idle', lock = "", client = "")
+        return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
+
 
 
 def dashboard(request):

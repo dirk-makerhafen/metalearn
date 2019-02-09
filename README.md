@@ -36,8 +36,7 @@ Server:
 
 python3 manage.py runserver 1.2.3.4:1234
 
-celery -A metalearn worker -l info
-
+celery -A metalearn worker -l info --max-tasks-per-child 100
 
 Client:
 

@@ -525,20 +525,11 @@ class OptimiserMetaES(BaseOptimiser):
 
         self.parameters["num_params"] = self.getNrOfTrainableParameters(environment, architecture)
 
-        opti_noisyExecution = None
-
-        for i in range(0,2):
-            experimentSet_id = ExperimentSet.objects.get(name=self.experimentSet_name).id
-            opti_noisyExecution, lock = EpisodeNoisyExecution.getOneIdleLocked("OptimiserMetaES", public=False, experimentSetIds = [experimentSet_id ,])
-            if opti_noisyExecution != None:
-                break            
-            print("delay")
-            time.sleep(2)
-            commit()
+        experimentSet_id = ExperimentSet.objects.get(name=self.experimentSet_name).id
+        opti_noisyExecution, lock = EpisodeNoisyExecution.getOneIdleLocked("OptimiserMetaES", public=False, experimentSetIds = [experimentSet_id ,])
 
         if opti_noisyExecution == None:
             return "delay"
-
 
         # load optimiser 
         opti_weightNoise = opti_noisyExecution.episode.weightsNoise

@@ -26,12 +26,14 @@ SECRET_KEY = '4q=18^^)q@(fa=1vb6zujwa5-ooyn00crh1*5q1_bva1pf4shh'
 DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
+INTERNAL_IPS = ["192.168.6.131"]
 
 
 # Application definition
 
 INSTALLED_APPS = (
     'metalearn',
+
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -39,14 +41,16 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     #'django_extensions',
     'django.template',
-    'django_adminlte',
     'django.contrib.admin',
     'widget_tweaks',
     'crispy_forms',
     'django_select2',
     'django_ajax',
+    'django_adminlte',
     'cruds_adminlte',
-    #'django_celery_results',
+    'debug_toolbar',
+    
+
 )
 
 MIDDLEWARE = [
@@ -59,6 +63,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     #'metalearn.middleware.requireLoginMiddleware.LoginRequiredMiddleware',    
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
 ROOT_URLCONF = 'metalearn.urls'

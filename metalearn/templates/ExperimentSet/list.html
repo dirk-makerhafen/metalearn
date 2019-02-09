@@ -1,0 +1,50 @@
+{% extends 'cruds/list.html' %}
+{% load i18n %}
+{% load crud_tags %}
+
+{% block thead %}
+    {% for field, field_name in fields.items %}
+        <th class="th-field-{{ field|lower }} th-fieldtype-{{ field_name.1|lower }}">{{ field_name.0 }}</th>
+    {% endfor %}
+    <th>Experiments</th>
+    <th>{% trans "Actions" %}</th>
+{% endblock thead %}
+
+
+{% block tbody %}
+    {% for object in object_list %}
+        <tr>
+            {% for field, field_name in fields.items %}
+                <td class="td-field-{{ field|lower }} td-fieldtype-{{ field_name.1|lower }}">
+                    {% with column=field_name.1|lower|add:".html" %}
+                        {% include "cruds/columns/"|add:column %}
+                    {% endwith %}
+                    {# typefield #}
+                </td>
+            {% endfor %}
+
+            <td>{{ object.experiments_count }}</td>
+      
+            <td>
+                {% block actions %}
+                    {% crud_url object "detail" namespace as url %}
+                    {% if url and 'detail' in views_available and crud_perms.detail %}
+                        <a href="{{ url }}{{getparams}}" class="btn btn-success">{% trans "Show" %}</a>
+                    {% endif %}
+                    {% crud_url object "update" namespace as url %}
+                    {% if url and 'update' in views_available and crud_perms.update %}
+                        <a href="{{ url }}{{getparams}}" class="btn btn-primary">{% trans "Edit" %}</a>
+                    {% endif %}
+                    {% crud_url object "delete" namespace as url %}
+                    {% if url and 'delete' in views_available and crud_perms.delete %}
+                        <a href="{{ url }}{{getparams}}" class="btn btn-danger">{% trans "Delete" %}</a>
+                    {% endif %}
+           
+                    <a href="/metalearn/experimentset/{{ object.id }}/trigger_on_done" class="btn btn-warning">OnDoneTask</a>
+                {% endblock %}
+            </td>
+        </tr>
+    {% endfor %}
+{% endblock tbody %}
+
+
