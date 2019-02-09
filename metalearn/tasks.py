@@ -29,8 +29,8 @@ def rank_and_center(numbers):
 
 # ExperimentSet
 
-@shared_task(bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
-def on_ExperimentSet_created(experimentSet_id):
+@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
+def on_ExperimentSet_created(self, experimentSet_id):
     from .models import ExperimentSet
     from .models import Experiment
 
@@ -66,8 +66,8 @@ def on_ExperimentSet_created(experimentSet_id):
     ExperimentSet.objects.filter(id = experimentSet_id).update(on_created_executed=True)
 
 
-@shared_task(bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
-def on_ExperimentSet_done(experimentSet_id):
+@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
+def on_ExperimentSet_done(self, experimentSet_id):
     from .models import ExperimentSet
     from .models import Experiment
     from .models import EpisodeNoisyExecution
@@ -107,8 +107,8 @@ def on_ExperimentSet_done(experimentSet_id):
 
 # Experiment
 
-@shared_task(bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
-def on_Experiment_created(experiment_id, experimentSet_id):
+@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
+def on_Experiment_created(self, experiment_id, experimentSet_id):
     from .models import Experiment
     from .models import Episode
 
@@ -152,8 +152,8 @@ def on_Experiment_created(experiment_id, experimentSet_id):
     Experiment.objects.filter(id = experiment_id).update(on_created_executed=True)
 
 
-@shared_task(bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
-def on_Experiment_done(experiment_id, experimentSet_id):
+@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
+def on_Experiment_done(self, experiment_id, experimentSet_id):
     from .models import ExperimentSet
     from .models import Experiment
     from .models import Episode
@@ -186,8 +186,8 @@ def on_Experiment_done(experiment_id, experimentSet_id):
 
 # Episode
 
-@shared_task(bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
-def on_Episode_created(episode_id, experiment_id, experimentSet_id):
+@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
+def on_Episode_created(self, episode_id, experiment_id, experimentSet_id):
     from .models import Episode
     from .models import EpisodeNoisyExecution
 
@@ -208,8 +208,8 @@ def on_Episode_created(episode_id, experiment_id, experimentSet_id):
 
     Episode.objects.filter(id = episode_id).update(on_created_executed=True)
 
-@shared_task(bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
-def on_Episode_done(episode_id, experiment_id, experimentSet_id):
+@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
+def on_Episode_done(self, episode_id, experiment_id, experimentSet_id):
     from .models import Episode
     from .models import Experiment
     from .models import ExperimentSet
@@ -296,13 +296,13 @@ def on_Episode_done(episode_id, experiment_id, experimentSet_id):
 
 
 # EpisodeNoisyExecution
-@shared_task(bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
-def on_NoisyExecution_created(noisyExecution_id, episode_id, experiment_id, experimentSet_id):
+@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
+def on_NoisyExecution_created(self, noisyExecution_id, episode_id, experiment_id, experimentSet_id):
     EpisodeNoisyExecution.objects.filter(id = noisyExecution_id).update(on_created_executed=True)
 
 
-@shared_task(bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
-def on_NoisyExecution_done(noisyExecution_id, episode_id, experiment_id, experimentSet_id):
+@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
+def on_NoisyExecution_done(self, noisyExecution_id, episode_id, experiment_id, experimentSet_id):
     from .models import EpisodeNoisyExecution
     from .models import Episode
     

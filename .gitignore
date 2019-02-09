@@ -8,3 +8,4 @@ venv
 metalearn/ml/data
 metalearn/ml/datasets
 cluster_settings.py
+metalearn/static/
