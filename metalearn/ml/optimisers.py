@@ -62,6 +62,16 @@ def batched_weighted_sum(weights, vecs, batch_size=500):
         num_items_summed += len(batch_weights)
     return total, num_items_summed
 
+def lock(key):
+    r = redisconnection.set(key, 'true', ex=60, nx=True)
+    while r == None:
+        time.sleep(0.5)   
+        print("locked")
+        r = redisconnection.set(key, 'true', ex=60, nx=True)
+def unlock(key):
+    redisconnection.delete(key, 'true', ex=60, nx=True)
+
+
 class AdamOptimizer(object):
     def __init__(self,num_params, learning_rate, beta1=0.99, beta2=0.999, epsilon=1e-08):
         self.dim = num_params
@@ -158,6 +168,10 @@ class BaseOptimiser():
         pass
 
     def getNrOfTrainableParameters(self, environment, architecture):
+
+
+        lock("BaseOptimiser.getNrOfTrainableParameters.lock")
+
         num_params = 0
         cache_key = "%s_%s.num_params" % (environment.name, architecture.name)
         c = redisconnection.get(cache_key)
@@ -169,7 +183,7 @@ class BaseOptimiser():
 
             arch = architecture.getInstance()
             arch.initialize(env.observation_space, env.action_space)
-        
+      
             num_params = arch.num_params
             env.close()
             arch.close()
@@ -179,6 +193,10 @@ class BaseOptimiser():
 
         redisconnection.set(cache_key, num_params)
         redisconnection.expire(cache_key,30)
+
+        on_commit(lambda: unlock("BaseOptimiser.getNrOfTrainableParameters.lock"))
+
+
         print("getNrOfTrainableParameters for %s  -  %s  : %s" % (environment, architecture, num_params))
         return num_params
     def close(self):
@@ -451,14 +469,7 @@ class OptimiserMetaES(BaseOptimiser):
 
         param = [["nr_of_embeddings_per_weight",self.nr_of_embeddings_per_weight], ["nr_of_embeddings",self.nr_of_embeddings]]
 
-
-        
-        r = redisconnection.set("somelock", 'true', ex=1200, nx=True)
-        while r == None:
-            time.sleep(1)   
-            print("locked")
-            r = redisconnection.set("somelock", 'true', ex=1200, nx=True)
-
+        lock("OptimiserMetaES.__init__.lock")
 
         try:
             self.optimiserenvironment = Environment.objects.get(classname="OptimiserMetaESEnvironment", classargs=json.dumps(param))
@@ -519,7 +530,7 @@ class OptimiserMetaES(BaseOptimiser):
             e3.save()
             
         
-        on_commit(lambda: redisconnection.delete("somelock"))
+        on_commit(lambda: unlock("OptimiserMetaES.__init__.lock"))
 
         self.parameters = {
             "num_params" : -1,              # number of model parameters
@@ -548,8 +559,6 @@ class OptimiserMetaES(BaseOptimiser):
         opti_weights = opti_weightNoise[0] + (opti_weightNoise[1] * createNoise(opti_noisyExecution.noiseseed, len(opti_weightNoise[0] ) ) )
         optimiser_Arch = opti_noisyExecution.architecture.getInstance()
         input_space, output_space = self._getInputOutputSpaces()
-        optimiser_Arch.initialize(input_space, output_space, opti_weights)
-        print(optimiser_Arch)
 
         data = np.array([
             np.zeros( [ self.parameters["num_params"], self.parameters["nr_of_embeddings_per_weight"] ]).astype(np.float32),    # per_weight_embeddings
@@ -561,8 +570,14 @@ class OptimiserMetaES(BaseOptimiser):
             np.array([0.0]), # steps
             np.array([0.0]), # nr_of_noisy execution per expisode
         ])
+
+        lock("OptimiserMetaES.initialize.lock")
+        optimiser_Arch.initialize(input_space, output_space, opti_weights)
         r = optimiser_Arch.run(data)
         optimiser_Arch.close()
+        on_commit(lambda: unlock("OptimiserMetaES.initialize.lock"))
+
+
         print(r)
         new_embeddings_per_weight = r[0]
         new_weights = r[1]
@@ -629,7 +644,6 @@ class OptimiserMetaES(BaseOptimiser):
         print(opti_weightNoise)
         opti_weights = opti_weightNoise[0] + (opti_weightNoise[1] * createNoise(optimiser_noisyExecution.noiseseed, len(opti_weightNoise[0] ) ) )
         input_space, output_space = self._getInputOutputSpaces()
-        optimiser_Arch.initialize(input_space, output_space, opti_weights )
 
         
         print(optimiser_Arch)
@@ -648,6 +662,11 @@ class OptimiserMetaES(BaseOptimiser):
 
         for noisyExecution in noisyExecutions:
             noisyExecution.weights_used = weightNoise[0] + (weightNoise[1] * createNoise(noisyExecution.noiseseed, len(weightNoise[0] )) )
+
+
+        lock("OptimiserMetaES.optimise.lock")
+
+        optimiser_Arch.initialize(input_space, output_space, opti_weights )
 
         for noisyExecution in noisyExecutions:
             print("running meta optimiser")
@@ -688,7 +707,8 @@ class OptimiserMetaES(BaseOptimiser):
 
 
         optimiser_Arch.close()
-        
+        unlock("OptimiserMetaES.optimise.lock")
+
 
         weightsNoise = np.array([
             new_weights, # parameter 0 -> Weights

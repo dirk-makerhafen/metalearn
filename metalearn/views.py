@@ -151,8 +151,6 @@ class ExperimentSetView(CRUDView):
         return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
 
 
-
-
 class ExperimentView(CRUDView):
     model = models.Experiment
     template_name_base = "Experiment"
@@ -235,7 +233,6 @@ class EpisodeView(CRUDView):
         ep = models.Episode.objects.get(id=pk)
         tasks.on_Episode_done.delay(ep.id, ep.experiment_id, ep.experimentSet_id)
         return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
-
 
 
 class EpisodeNoisyExecutionView(CRUDView):
