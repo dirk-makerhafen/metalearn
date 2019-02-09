@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from scipy.stats import rankdata
 from django.db.transaction import on_commit
 from django.db.transaction import commit
+from billiard import Process
 
 
 def rank(numbers):
@@ -26,14 +27,13 @@ def rank_and_center(numbers):
     return ranksMinus1To1
 
 
-
 # ExperimentSet
 
 @shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
 def on_ExperimentSet_created(self, experimentSet_id):
     from .models import ExperimentSet
     from .models import Experiment
-
+    print("on_ExperimentSet_created")
     experimentSet = ExperimentSet.objects.get(id=experimentSet_id) # because autocommit..
     
     combinations = []
@@ -110,9 +110,14 @@ def on_ExperimentSet_done(self, experimentSet_id):
 #@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
 @shared_task( bind=True)
 def on_Experiment_created(self, experiment_id, experimentSet_id):
+    p = Process(target=_on_Experiment_created, args=(self, experiment_id, experimentSet_id ))
+    p.start()
+    p.join()
+
+def _on_Experiment_created(self, experiment_id, experimentSet_id):
     from .models import Experiment
     from .models import Episode
-
+    print(self, experiment_id, experimentSet_id)
     experiment = Experiment.objects.get(id=experiment_id)
 
     # init optimiser
@@ -211,6 +216,11 @@ def on_Episode_created(self, episode_id, experiment_id, experimentSet_id):
 
 @shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
 def on_Episode_done(self, episode_id, experiment_id, experimentSet_id):
+    p = Process(target=_on_Episode_done, args=(self, episode_id, experiment_id, experimentSet_id ))
+    p.start()
+    p.join()
+
+def _on_Episode_done(self, episode_id, experiment_id, experimentSet_id):
     from .models import Episode
     from .models import Experiment
     from .models import ExperimentSet

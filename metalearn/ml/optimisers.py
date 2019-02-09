@@ -4,6 +4,7 @@ import redis
 import pickle
 import time
 from gym import spaces
+from django.conf import settings
 from django.db.transaction import commit
 from django.db.transaction import on_commit
 import gc
@@ -62,6 +63,12 @@ def batched_weighted_sum(weights, vecs, batch_size=500):
         num_items_summed += len(batch_weights)
     return total, num_items_summed
 
+
+def _dolock(index):
+    r = redisconnection.set("metalearn.gpu.lock.%s" % index, 'true', ex=120, nx=True)
+    return r != None
+      
+
 def mtlock(key):
     r = redisconnection.set(key, 'true', ex=60, nx=True)
     while r == None:
@@ -70,6 +77,26 @@ def mtlock(key):
 
 def mtunlock(key):
     redisconnection.delete(key)
+
+  
+def gpulock():
+    if settings.GPU_ENABLED == False:   
+        return True
+    while True:
+        for index in range(0, settings.GPU_PARALLEL_PROCESSES):
+            if _dolock(index) == True:
+                return True
+        time.sleep(0.3)
+
+def gpuunlock():    
+    if settings.GPU_ENABLED == False:   
+        return True
+    for index in range(0, settings.GPU_PARALLEL_PROCESSES):
+        r = redisconnection.delete("metalearn.gpu.lock.%s" % index)
+        if r >= 1:
+            return True
+    return False
+
 
 
 class AdamOptimizer(object):
@@ -169,9 +196,8 @@ class BaseOptimiser():
 
     def getNrOfTrainableParameters(self, environment, architecture):
 
-
-        mtlock("BaseOptimiser.getNrOfTrainableParameters.lock")
-
+        gpulock()
+        
         num_params = 0
         cache_key = "%s_%s.num_params" % (environment.name, architecture.name)
         c = redisconnection.get(cache_key)
@@ -194,7 +220,7 @@ class BaseOptimiser():
         redisconnection.set(cache_key, num_params)
         redisconnection.expire(cache_key,30)
 
-        on_commit(lambda: mtunlock("BaseOptimiser.getNrOfTrainableParameters.lock"))
+        on_commit(lambda: gpuunlock())
 
 
         print("getNrOfTrainableParameters for %s  -  %s  : %s" % (environment, architecture, num_params))
@@ -571,11 +597,11 @@ class OptimiserMetaES(BaseOptimiser):
             np.array([0.0]), # nr_of_noisy execution per expisode
         ])
 
-        mtlock("OptimiserMetaES.initialize.lock")
+        gpulock()
         optimiser_Arch.initialize(input_space, output_space, opti_weights)
         r = optimiser_Arch.run(data)
         optimiser_Arch.close()
-        on_commit(lambda: mtunlock("OptimiserMetaES.initialize.lock"))
+        on_commit(lambda: gpuunlock())
 
 
         print(r)
@@ -664,7 +690,7 @@ class OptimiserMetaES(BaseOptimiser):
             noisyExecution.weights_used = weightNoise[0] + (weightNoise[1] * createNoise(noisyExecution.noiseseed, len(weightNoise[0] )) )
 
 
-        mtlock("OptimiserMetaES.optimise.lock")
+        gpulock()
 
         optimiser_Arch.initialize(input_space, output_space, opti_weights )
 
@@ -707,8 +733,7 @@ class OptimiserMetaES(BaseOptimiser):
 
 
         optimiser_Arch.close()
-        mtunlock("OptimiserMetaES.optimise.lock")
-
+        gpuunlock()
 
         weightsNoise = np.array([
             new_weights, # parameter 0 -> Weights

@@ -8,6 +8,7 @@ import tensorflow as tf
 import tensorflow.contrib.layers as layers
 import gc
 from . import tf_util
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,11 @@ class Architecture():
             self._setfromflat = tf_util.SetFromFlat(self.trainable_variables)
             self._getflat = tf_util.GetFlat(self.trainable_variables)
 
-            self.session = tf.Session()
+            config = tf.ConfigProto()
+            config.gpu_options.per_process_gpu_memory_fraction = settings.GPU_PER_PROCESS_MEMORY_FRACTION
+            config.gpu_options.allow_growth = True
+
+            self.session = tf.Session(config=config)
             self.session.run(tf.initialize_variables(tf.all_variables()))
 
             if weights is not None:
@@ -75,7 +80,6 @@ class Architecture():
         tf.reset_default_graph()
         self.session.close()
         self.session = None
-        
         self.graph = None
         gc.collect()
 

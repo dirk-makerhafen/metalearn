@@ -15,6 +15,11 @@ import os, sys
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+GPU_ENABLED = True
+GPU_PER_PROCESS_MEMORY_FRACTION = 0.2
+GPU_PARALLEL_PROCESSES = 4
+
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.8/howto/deployment/checklist/
