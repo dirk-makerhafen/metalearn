@@ -14,6 +14,7 @@ clip = tf.clip_by_value
 # Make consistent with numpy
 # ----------------------------------------
 
+'''
 def sum(x, axis=None, keepdims=False):
     return tf.reduce_sum(x, reduction_indices=None if axis is None else [axis], keep_dims = keepdims)
 def mean(x, axis=None, keepdims=False):
@@ -33,20 +34,14 @@ def argmax(x, axis=None):
     return tf.argmax(x, dimension=axis)
 
 def switch(condition, then_expression, else_expression):
-    '''Switches between two operations depending on a scalar value (int or bool).
-    Note that both `then_expression` and `else_expression`
-    should be symbolic tensors of the *same shape*.
-    # Arguments
-        condition: scalar tensor.
-        then_expression: TensorFlow operation.
-        else_expression: TensorFlow operation.
-    '''
     x_shape = copy.copy(then_expression.get_shape())
     x = tf.cond(tf.cast(condition, 'bool'),
                 lambda: then_expression,
                 lambda: else_expression)
     x.set_shape(x_shape)
     return x
+'''
+
 
 # Extras
 # ----------------------------------------
@@ -64,9 +59,11 @@ def categorical_sample_logits(X):
     U = tf.random_uniform(tf.shape(X))
     return argmax(X - tf.log(-tf.log(U)), axis=1)
 
+
 # ================================================================
 # Global session
 # ================================================================
+'''
 
 def get_session():
     return tf.get_default_session()
@@ -83,7 +80,6 @@ def initialize():
     get_session().run(tf.initialize_variables(new_variables))
     ALREADY_INITIALIZED.update(new_variables)
 
-
 def eval(expr, feed_dict=None):
     if feed_dict is None: feed_dict = {}
     return get_session().run(expr, feed_dict=feed_dict)
@@ -99,6 +95,9 @@ def save_state(fname):
     os.makedirs(os.path.dirname(fname), exist_ok=True)
     saver = tf.train.Saver()
     saver.save(get_session(), fname)
+
+'''
+
 
 # ================================================================
 # Model components
@@ -117,7 +116,6 @@ def normc_initializer(std=1.0):
         return result
     return _initializer
 
-
 def _normalize(x, std):
     def py_func_init(out):
         shape = out.shape
@@ -127,7 +125,6 @@ def _normalize(x, std):
         return out
 
     return x.assign(tf.py_func(py_func_init, [x], tf.float32))
-
 
 def conv(x, kernel_size, num_outputs, name, stride=1, padding="SAME", bias=True, std=1.0):
     assert len(x.get_shape()) == 4
@@ -160,20 +157,9 @@ def dense(x, size, name, weight_init=None, bias=True, std=1.0):
     else:
         return ret
 
-def dense_nb(x, size, name, weight_init=None, bias=True, std=1.0):
-    w = tf.get_variable(name + "/w", [x.get_shape()[0], size], initializer=weight_init)
+def flattenallbut0(x):
+    return tf.reshape(x, [-1, intprod(x.get_shape().as_list()[1:])])
 
-    w.reinitialize = _normalize(w, std=std)
-
-    ret = tf.matmul(x, w)
-    if bias:
-        b = tf.get_variable(name + "/b", [size], initializer=tf.zeros_initializer)
-
-        b.reinitialize = b.assign(tf.zeros_like(b))
-        #b = tf.Print(b, [b, w], name + 'last_bias,w=' )
-        return ret + b
-    else:
-        return ret
 
 
 # ================================================================
@@ -203,7 +189,8 @@ class _Function(object):
         assert len(inputvals) == len(self.inputs)
         feed_dict = dict(zip(self.inputs, inputvals))
         feed_dict.update(self.givens)
-        results = get_session().run(self.outputs_update, feed_dict=feed_dict)[:-1]
+        with tf.Session() as session:
+            results = session.run(self.outputs_update, feed_dict=feed_dict)[:-1]
         if self.check_nan:
             if any(np.isnan(r).any() for r in results):
                 raise RuntimeError("Nan detected")
@@ -252,13 +239,19 @@ class SetFromFlat(object):
         assert start == total_size
         self.op = tf.group(*assigns)
     def __call__(self, theta):
-        get_session().run(self.op, feed_dict={self.theta:theta})
+        with tf.Session() as session:
+            r = session.run(self.op, feed_dict={self.theta:theta})
+        return r
 
 class GetFlat(object):
     def __init__(self, var_list):
         self.op = tf.concat(axis=0, values=[tf.reshape(v, [numel(v)]) for v in var_list])
     def __call__(self):
-        return get_session().run(self.op)
+        with tf.Session() as session:
+            r = session.run(self.op) 
+        return r
+
+'''
 
 # ================================================================
 # Misc
@@ -296,8 +289,6 @@ def get_placeholder(name, dtype, shape):
 def get_placeholder_cached(name):
     return _PLACEHOLDER_CACHE[name][0]
 
-def flattenallbut0(x):
-    return tf.reshape(x, [-1, intprod(x.get_shape().as_list()[1:])])
 
 def reset():
     global _PLACEHOLDER_CACHE
@@ -305,3 +296,4 @@ def reset():
     _PLACEHOLDER_CACHE = {}
     VARIABLES = {}
     tf.reset_default_graph()
+'''

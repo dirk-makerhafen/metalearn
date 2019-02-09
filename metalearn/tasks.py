@@ -107,7 +107,8 @@ def on_ExperimentSet_done(self, experimentSet_id):
 
 # Experiment
 
-@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
+#@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
+@shared_task( bind=True)
 def on_Experiment_created(self, experiment_id, experimentSet_id):
     from .models import Experiment
     from .models import Episode

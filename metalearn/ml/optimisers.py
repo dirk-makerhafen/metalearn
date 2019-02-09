@@ -62,13 +62,13 @@ def batched_weighted_sum(weights, vecs, batch_size=500):
         num_items_summed += len(batch_weights)
     return total, num_items_summed
 
-def lock(key):
+def mtlock(key):
     r = redisconnection.set(key, 'true', ex=60, nx=True)
     while r == None:
         time.sleep(0.3)   
         r = redisconnection.set(key, 'true', ex=60, nx=True)
 
-def unlock(key):
+def mtunlock(key):
     redisconnection.delete(key)
 
 
@@ -170,7 +170,7 @@ class BaseOptimiser():
     def getNrOfTrainableParameters(self, environment, architecture):
 
 
-        lock("BaseOptimiser.getNrOfTrainableParameters.lock")
+        mtlock("BaseOptimiser.getNrOfTrainableParameters.lock")
 
         num_params = 0
         cache_key = "%s_%s.num_params" % (environment.name, architecture.name)
@@ -190,11 +190,11 @@ class BaseOptimiser():
 
         if num_params < 1:
             raise Exception("Failed to get number of trainable parameters for arch '%s'  env '%s'" % (architecture.name, environment.name))
-
+        
         redisconnection.set(cache_key, num_params)
         redisconnection.expire(cache_key,30)
 
-        on_commit(lambda: unlock("BaseOptimiser.getNrOfTrainableParameters.lock"))
+        on_commit(lambda: mtunlock("BaseOptimiser.getNrOfTrainableParameters.lock"))
 
 
         print("getNrOfTrainableParameters for %s  -  %s  : %s" % (environment, architecture, num_params))
@@ -469,7 +469,7 @@ class OptimiserMetaES(BaseOptimiser):
 
         param = [["nr_of_embeddings_per_weight",self.nr_of_embeddings_per_weight], ["nr_of_embeddings",self.nr_of_embeddings]]
 
-        lock("OptimiserMetaES.__init__.lock")
+        mtlock("OptimiserMetaES.__init__.lock")
 
         try:
             self.optimiserenvironment = Environment.objects.get(classname="OptimiserMetaESEnvironment", classargs=json.dumps(param))
@@ -530,7 +530,7 @@ class OptimiserMetaES(BaseOptimiser):
             e3.save()
             
         
-        on_commit(lambda: unlock("OptimiserMetaES.__init__.lock"))
+        on_commit(lambda: mtunlock("OptimiserMetaES.__init__.lock"))
 
         self.parameters = {
             "num_params" : -1,              # number of model parameters
@@ -571,11 +571,11 @@ class OptimiserMetaES(BaseOptimiser):
             np.array([0.0]), # nr_of_noisy execution per expisode
         ])
 
-        lock("OptimiserMetaES.initialize.lock")
+        mtlock("OptimiserMetaES.initialize.lock")
         optimiser_Arch.initialize(input_space, output_space, opti_weights)
         r = optimiser_Arch.run(data)
         optimiser_Arch.close()
-        on_commit(lambda: unlock("OptimiserMetaES.initialize.lock"))
+        on_commit(lambda: mtunlock("OptimiserMetaES.initialize.lock"))
 
 
         print(r)
@@ -664,7 +664,7 @@ class OptimiserMetaES(BaseOptimiser):
             noisyExecution.weights_used = weightNoise[0] + (weightNoise[1] * createNoise(noisyExecution.noiseseed, len(weightNoise[0] )) )
 
 
-        lock("OptimiserMetaES.optimise.lock")
+        mtlock("OptimiserMetaES.optimise.lock")
 
         optimiser_Arch.initialize(input_space, output_space, opti_weights )
 
@@ -707,7 +707,7 @@ class OptimiserMetaES(BaseOptimiser):
 
 
         optimiser_Arch.close()
-        unlock("OptimiserMetaES.optimise.lock")
+        mtunlock("OptimiserMetaES.optimise.lock")
 
 
         weightsNoise = np.array([

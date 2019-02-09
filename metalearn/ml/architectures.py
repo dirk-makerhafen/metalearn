@@ -21,13 +21,14 @@ class Architecture():
         print("initialize.initialize")
         self.input_space = input_space
         self.output_space = output_space
-        
+        self.inputs = []
+        self.outputs = []
+
         self.graph = tf.Graph()
+        self.session = None
 
         with self.graph.as_default():
         
-            self.session = tf.InteractiveSession(config=tf.ConfigProto(inter_op_parallelism_threads=1, intra_op_parallelism_threads=1))
-
             self.scope = self._initialize()
 
             self.all_variables = tf.get_collection(tf.GraphKeys.VARIABLES, self.scope.name)
@@ -37,7 +38,9 @@ class Architecture():
             self._setfromflat = tf_util.SetFromFlat(self.trainable_variables)
             self._getflat = tf_util.GetFlat(self.trainable_variables)
 
-            tf_util.initialize()
+            self.session = tf.Session()
+            self.session.run(tf.initialize_variables(tf.all_variables()))
+
             if weights is not None:
                 self.set_weights(weights)
 
@@ -56,9 +59,11 @@ class Architecture():
         self.set_weights(weights)
         # reset to a state as if initialize was just run
 
-    def run(self, input):
-        output =  self._run(input[None])
-        return output
+    def run(self, inputvals):
+        assert len(inputvals) == len(self.inputs)
+        feed_dict = dict(zip(self.inputs, inputvals))
+        results = self.session.run(self.outputs, feed_dict=feed_dict)
+        return results
 
     def set_weights(self, weights):
         self._setfromflat(weights)
@@ -67,9 +72,13 @@ class Architecture():
         return self._getflat()
     
     def close(self):
-        self.session.close()
         tf.reset_default_graph()
+        self.session.close()
+        self.session = None
+        
+        self.graph = None
         gc.collect()
+
 
 class Architecture_GAAtariPolicy(Architecture):
     def __init__(self, nonlin_type):
@@ -98,7 +107,8 @@ class Architecture_GAAtariPolicy(Architecture):
 
             a = tf.argmax(a,1)
 
-            self._run = tf_util.function([o] , a)
+            self.inputs = [o]
+            self.outputs = [a]
             return scope
 
 
@@ -152,7 +162,8 @@ class Architecture_MujocoPolicy(Architecture):
 
             a = tf_util.dense(x, adim, 'out', tf_util.normc_initializer(0.01))
 
-            self._run = tf_util.function([o], a)
+            self.inputs = [o]
+            self.outputs = [a]
             return scope
 
 
@@ -177,7 +188,7 @@ class Architecture_MetaES(Architecture):
             in_steps                 = tf.placeholder(tf.float32, [1, 1 ])
             in_count                 = tf.placeholder(tf.float32, [1, 1 ])
 
-            inputs = [ in_embeddings_per_weight, in_weights, in_embeddings, in_episode_nr, in_fitness, in_rank, in_steps, in_count ]
+            self.inputs = [ in_embeddings_per_weight, in_weights, in_embeddings, in_episode_nr, in_fitness, in_rank, in_steps, in_count ]
 
             # Meta data embedding stuff
             meta = tf.concat(values=[ in_embeddings, in_episode_nr, in_fitness, in_rank, in_steps, in_count],axis=1)
@@ -221,7 +232,7 @@ class Architecture_MetaES(Architecture):
             print("out_weights", out_weights)
             print("out_noise", out_noise)
 
-            outputs = [
+            self.outputs = [
                 out_embeddings_per_weight,
                 out_weights,
                 out_noise,
@@ -230,18 +241,29 @@ class Architecture_MetaES(Architecture):
                 out_timespend_factor,
                 out_steps_factor,
             ]
-            self._run = tf_util.function(inputs, outputs)
+            
             return scope
 
-    def run(self, inputs):
-        for i in range(0,len(inputs)):
-            inputs[i] = np.array([inputs[i]]) #add batch dim 
-            
-        outputs =  self._run(*inputs)
+    def run(self, inputvals):
+        assert len(inputvals) == len(self.inputs)
+
+        for i in range(0,len(inputvals)):
+            inputvals[i] = np.array([inputvals[i]])
+
+        feed_dict = dict(zip(self.inputs, inputvals))
+        try:
+            outputs = self.session.run(self.outputs, feed_dict=feed_dict)
+        except Exception as e:
+            print(e)
+
         for i in range(0,len(outputs)):
             outputs[i] = outputs[i][0].astype(np.float32)# remove batch dim
         outputs[2] = outputs[2].astype(np.float16)    # noiselevel is float16 
+
+        print(len(outputs))
+
         return outputs
+
 
 # create these if your db is empty
 default_models = [
