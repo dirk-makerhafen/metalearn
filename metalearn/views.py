@@ -156,6 +156,8 @@ class ExperimentSetView(CRUDView):
 class ExperimentView(CRUDView):
     model = models.Experiment
     template_name_base = "Experiment"
+    paginate_by = 200
+
     list_filter = [ 
         'id', 
         'environment', 'architecture', 'optimiser', 'experimentSet', 
@@ -195,6 +197,8 @@ class ExperimentView(CRUDView):
 class EpisodeView(CRUDView):
     model = models.Episode
     template_name_base = "Episode"
+    paginate_by = 200
+
     list_filter = [ 
         'id', 
         'environment', 'architecture', 'optimiser', 'experimentSet', 'experiment', 
@@ -237,6 +241,7 @@ class EpisodeView(CRUDView):
 class EpisodeNoisyExecutionView(CRUDView):
     model = models.EpisodeNoisyExecution
     template_name_base = "EpisodeNoisyExecution"
+    paginate_by = 200
 
     list_filter = [ 
         'id', 

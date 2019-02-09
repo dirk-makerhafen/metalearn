@@ -6,6 +6,7 @@ import time
 from gym import spaces
 from django.db.transaction import commit
 from django.db.transaction import on_commit
+import gc
 
 try:
     redisconnection = redis.StrictRedis(unix_socket_path='/var/run/redis/redis.sock', db=8)
@@ -644,19 +645,16 @@ class OptimiserMetaES(BaseOptimiser):
         weightNoise = episode.weightsNoise
         
         noisyExecutions = [x for x in episode.noisyExecutions.all()]
+
+        for noisyExecution in noisyExecutions:
+            noisyExecution.weights_used = weightNoise[0] + (weightNoise[1] * createNoise(noisyExecution.noiseseed, len(weightNoise[0] )) )
+
         for noisyExecution in noisyExecutions:
             print("running meta optimiser")
-            print(weightNoise)
-            print(len(weightNoise[0]))
-            print(len(weightNoise[1]))
-            print(len(weightNoise))
-            n = createNoise(noisyExecution.noiseseed, len(weightNoise[0] ))
-            print(len(n))
-            weights_used = weightNoise[0] + (weightNoise[1] * n )
 
             data = np.array([
                 new_embeddings_per_weight,      # last per_weight_embeddings
-                weights_used,        # used weights            
+                noisyExecution.weights_used,        # used weights            
                 new_embeddings,        # last embedding            
                 np.array([episode.version]), # 
                 np.array([noisyExecution.fitness]), # fitness
@@ -667,7 +665,10 @@ class OptimiserMetaES(BaseOptimiser):
 
             print(data)
             r = optimiser_Arch.run(data)  # Run Optimiser NN
+            noisyExecution.weights_used = ""
             
+            gc.collect()
+    
             print("r[0]")
             print(r[0])
             print("r[1]")
@@ -687,6 +688,7 @@ class OptimiserMetaES(BaseOptimiser):
 
 
         optimiser_Arch.close()
+        
 
         weightsNoise = np.array([
             new_weights, # parameter 0 -> Weights

@@ -6,7 +6,7 @@ import h5py
 import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.layers as layers
-
+import gc
 from . import tf_util
 
 logger = logging.getLogger(__name__)
@@ -69,7 +69,7 @@ class Architecture():
     def close(self):
         self.session.close()
         tf.reset_default_graph()
-
+        gc.collect()
 
 class Architecture_GAAtariPolicy(Architecture):
     def __init__(self, nonlin_type):
