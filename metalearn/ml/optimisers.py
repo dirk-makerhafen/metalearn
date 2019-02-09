@@ -65,11 +65,11 @@ def batched_weighted_sum(weights, vecs, batch_size=500):
 def lock(key):
     r = redisconnection.set(key, 'true', ex=60, nx=True)
     while r == None:
-        time.sleep(0.5)   
-        print("locked")
+        time.sleep(0.3)   
         r = redisconnection.set(key, 'true', ex=60, nx=True)
+
 def unlock(key):
-    redisconnection.delete(key, 'true', ex=60, nx=True)
+    redisconnection.delete(key)
 
 
 class AdamOptimizer(object):
