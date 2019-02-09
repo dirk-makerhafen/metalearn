@@ -13,7 +13,7 @@ django-adminlte==1.2
 django-adminlte2==0.4.1
 django-appconf==1.0.2
 django-crispy-forms==1.7.2
-django-cruds-adminlte===0.0.13-
+django-cruds-adminlte===0.0.13
 django-debug-toolbar==1.11
 django-image-cropping==1.2.0
 django-select2==6.3.1
