@@ -119,7 +119,7 @@ def on_Experiment_created(self, experiment_id, experimentSet_id):
     result = optimiserInstance.initialize(experiment.environment, experiment.architecture)  
     if result == "delay":
         print("Delaying Experiment create because no optimiser is available at the moment")
-        on_Experiment_created(experiment_id, experimentSet_id).apply_async(countdown=60)
+        on_Experiment_created.apply_async([experiment_id, experimentSet_id], countdown=60)
         return 
 
 
