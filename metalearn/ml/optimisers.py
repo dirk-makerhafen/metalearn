@@ -5,6 +5,7 @@ import pickle
 import time
 from gym import spaces
 from django.db.transaction import commit
+from django.db.transaction import on_commit
 
 try:
     redisconnection = redis.StrictRedis(unix_socket_path='/var/run/redis/redis.sock', db=8)
@@ -449,6 +450,15 @@ class OptimiserMetaES(BaseOptimiser):
 
         param = [["nr_of_embeddings_per_weight",self.nr_of_embeddings_per_weight], ["nr_of_embeddings",self.nr_of_embeddings]]
 
+
+        
+        r = redisconnection.set("somelock", 'true', ex=1200, nx=True)
+        while r == None:
+            time.sleep(1)   
+            print("locked")
+            r = redisconnection.set("somelock", 'true', ex=1200, nx=True)
+
+
         try:
             self.optimiserenvironment = Environment.objects.get(classname="OptimiserMetaESEnvironment", classargs=json.dumps(param))
         except:
@@ -507,7 +517,8 @@ class OptimiserMetaES(BaseOptimiser):
             e2.save()
             e3.save()
             
-    
+        
+        on_commit(lambda: redisconnection.delete("somelock"))
 
         self.parameters = {
             "num_params" : -1,              # number of model parameters
