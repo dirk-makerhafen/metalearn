@@ -601,10 +601,7 @@ class OptimiserMetaES(BaseOptimiser):
         optimiser_Arch.initialize(input_space, output_space, opti_weights)
         r = optimiser_Arch.run(data)
         optimiser_Arch.close()
-        on_commit(lambda: gpuunlock())
 
-
-        print(r)
         new_embeddings_per_weight = r[0]
         new_weights = r[1]
         new_noise = r[2]
@@ -612,19 +609,6 @@ class OptimiserMetaES(BaseOptimiser):
         new_count_factor = r[4]
         new_timespend_factor = r[5]
         new_steps_factor = r[6]
-
-        print("new_weights")
-        print(new_weights)
-        print("new_noise")
-        print(new_noise)
-        print("new_embeddings")
-        print(new_embeddings)
-        print("new_count_factor")
-        print(new_count_factor)
-        print("new_timespend_factor")
-        print(new_timespend_factor)
-        print("new_steps_factor")
-        print(new_steps_factor)
 
         weightsNoise = np.array([
             new_weights, # parameter 0 -> Weights
@@ -646,6 +630,8 @@ class OptimiserMetaES(BaseOptimiser):
             "embeddings" : new_embeddings,
         },2)  
 
+        on_commit(lambda: gpuunlock())
+
         return  [ weightsNoise, optimiserMetaData, optimiserData, new_count_factor, new_timespend_factor, new_steps_factor]
 
     def optimise(self, episode):
@@ -665,15 +651,10 @@ class OptimiserMetaES(BaseOptimiser):
         optimiser_noisyExecution = EpisodeNoisyExecution.objects.get(id = optimiserMetaData["noisyExecution_id"])
         optimiser_Arch = optimiser_noisyExecution.architecture.getInstance()
         opti_weightNoise = optimiser_noisyExecution.episode.weightsNoise
-        print("optimiser opti_weightNoise")
-        print(optimiser_noisyExecution)
-        print(opti_weightNoise)
+        
         opti_weights = opti_weightNoise[0] + (opti_weightNoise[1] * createNoise(optimiser_noisyExecution.noiseseed, len(opti_weightNoise[0] ) ) )
         input_space, output_space = self._getInputOutputSpaces()
-
-        
-        print(optimiser_Arch)
-
+    
         new_embeddings_per_weight = optimiserData["embeddings_per_weight"]
         new_weights = None
         new_noise = None
@@ -708,21 +689,11 @@ class OptimiserMetaES(BaseOptimiser):
                 np.array([len(noisyExecutions) ]), # nr_of_noisy execution per expisode
             ])
 
-            print(data)
             r = optimiser_Arch.run(data)  # Run Optimiser NN
             noisyExecution.weights_used = ""
             
             gc.collect()
-    
-            print("r[0]")
-            print(r[0])
-            print("r[1]")
-            print(r[1])
-            print("r[2]")
-            print(r[2])
-            print("r[3]")
-            print(r[3])
-            
+
             new_embeddings_per_weight = r[0]
             new_weights = r[1]
             new_noise = r[2]
@@ -733,7 +704,6 @@ class OptimiserMetaES(BaseOptimiser):
 
 
         optimiser_Arch.close()
-        gpuunlock()
 
         weightsNoise = np.array([
             new_weights, # parameter 0 -> Weights
@@ -749,7 +719,9 @@ class OptimiserMetaES(BaseOptimiser):
             "embeddings_per_weight" : new_embeddings_per_weight,
             "embeddings" : new_embeddings,
         },2)  
-    
+
+        gpuunlock()
+
         return  [ weightsNoise, optimiserMetaData, optimiserData, new_count_factor, new_timespend_factor, new_steps_factor]
 
     def reward(self, episode, fitness):
