@@ -231,7 +231,7 @@ def _on_Episode_done(self, episode_id, experiment_id, experimentSet_id):
     ids = [x[0] for x in current_episode.noisyExecutions.all().values_list('id').distinct()]
     fitness_calc_keys = current_episode.noisyExecutions.filter(~Q(fitness_calc_key = "")).values_list("fitness_calc_key").distinct()
     for fitness_calc_key in fitness_calc_keys:
-        nes = EpisodeNoisyExecution.filter(fitness_calc_key = fitness_calc_key).values_list("id", "fitness_calc_value").distinct()
+        nes = EpisodeNoisyExecution.objects.filter(fitness_calc_key = fitness_calc_key).values_list("id", "fitness_calc_value").distinct()
         fnes = [x[1] for x in nes]
         ranks = rank_and_center(fnes)
         for i in range(0,len(fnes)):

@@ -16,8 +16,8 @@ import os, sys
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 GPU_ENABLED = True
-GPU_PER_PROCESS_MEMORY_FRACTION = 0.15
-GPU_PARALLEL_PROCESSES = 4
+GPU_PER_PROCESS_MEMORY_FRACTION = 0.2
+GPU_PARALLEL_PROCESSES = 3
 
 
 
