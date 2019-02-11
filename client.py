@@ -190,8 +190,8 @@ def run():
 
         while environment.hasNextObservation():
             observation = environment.getNextObservation()
-            action = architecture.run(observation)
-            fitness += environment.runAction(action) 
+            action = architecture.run([observation,])
+            fitness += environment.runAction(action[0]) 
             #env.env.render()
             steps += 1
             if steps >= noisyExecution["max_steps"]:

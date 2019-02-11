@@ -72,16 +72,28 @@ class Architecture():
 
     def run(self, inputvals):
         assert len(inputvals) == len(self.inputs)
+        inputvals = self._add_batch_dim(inputvals)
         feed_dict = dict(zip(self.inputs, inputvals))
-        results = self.session.run(self.outputs, feed_dict=feed_dict)
-        return results
+        outputs = self.session.run(self.outputs, feed_dict=feed_dict)
+        outputs = self._remove_batch_dim(outputs)
+        return outputs
 
     def set_weights(self, weights):
         self._setfromflat(weights)
     
     def get_weights(self):
         return self._getflat()
+
+    def _add_batch_dim(self, inputvals):
+        for i in range(0,len(inputvals)):
+            inputvals[i] = np.array([inputvals[i]])
+        return inputvals
     
+    def _remove_batch_dim(self, inputvals):
+        for i in range(0,len(inputvals)):
+            inputvals[i] = inputvals[i][0]
+        return inputvals
+
     def close(self):
         tf.reset_default_graph()
         self.session.close()
@@ -142,7 +154,8 @@ class Architecture_ESAtariPolicy(Architecture):
             x = layers.fully_connected(x, num_outputs=self.num_actions, activation_fn=None, scope='out')
             a = tf.argmax(x,1)
 
-            self._run = tf_util.function([o] , a)
+            self.inputs = [o]
+            self.outputs = [a]
             return scope
 
 
@@ -257,18 +270,15 @@ class Architecture_MetaES(Architecture):
     def run(self, inputvals):
         assert len(inputvals) == len(self.inputs)
 
-        for i in range(0,len(inputvals)):
-            inputvals[i] = np.array([inputvals[i]])
-
+        inputvals = self._add_batch_dim(inputvals)
         feed_dict = dict(zip(self.inputs, inputvals))
-        try:
-            outputs = self.session.run(self.outputs, feed_dict=feed_dict)
-        except Exception as e:
-            print(e)
+
+        outputs = self.session.run(self.outputs, feed_dict=feed_dict)        
+        outputs = self._remove_batch_dim(outputs)
 
         for i in range(0,len(outputs)):
-            outputs[i] = outputs[i][0].astype(np.float32)# remove batch dim
-        outputs[2] = outputs[2].astype(np.float16)    # noiselevel is float16 
+            outputs[i] = outputs[i].astype(np.float32)
+        outputs[2] = outputs[2].astype(np.float16)
 
         print(len(outputs))
 
