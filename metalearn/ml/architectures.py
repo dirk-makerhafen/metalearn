@@ -18,7 +18,7 @@ def createNoise(seed, width):
 
 
 class Architecture():
-    def initialize(self, input_space, output_space, weights = None):
+    def initialize(self, input_space, output_space, weights = None, usegpu=True):
         print("initialize.initialize")
         self.input_space = input_space
         self.output_space = output_space
@@ -39,9 +39,15 @@ class Architecture():
             self._setfromflat = tf_util.SetFromFlat(self.trainable_variables)
             self._getflat = tf_util.GetFlat(self.trainable_variables)
 
-            config = tf.ConfigProto()
-            config.gpu_options.per_process_gpu_memory_fraction = settings.GPU_PER_PROCESS_MEMORY_FRACTION
-            config.gpu_options.allow_growth = True
+            
+            if usegpu == True:
+                config = tf.ConfigProto()
+                config.gpu_options.per_process_gpu_memory_fraction = settings.GPU_PER_PROCESS_MEMORY_FRACTION
+                config.gpu_options.allow_growth = True
+            else:
+                config = tf.ConfigProto(
+                    device_count = {'GPU': 0}
+                )
 
             self.session = tf.Session(config=config)
             self.session.run(tf.initialize_variables(tf.all_variables()))

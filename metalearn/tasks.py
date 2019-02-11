@@ -9,7 +9,17 @@ from datetime import datetime, timedelta
 from scipy.stats import rankdata
 from django.db.transaction import on_commit
 from django.db.transaction import commit
+from django.conf import settings
+
 from billiard import Process
+import redis
+
+try:
+    redisconnection = redis.StrictRedis(unix_socket_path='/var/run/redis/redis.sock', db=8)
+    redisconnection.get("__test")
+except:
+    redisconnection = redis.StrictRedis(db=8)
+
 
 
 def rank(numbers):
@@ -27,32 +37,78 @@ def rank_and_center(numbers):
     return ranksMinus1To1
 
 
+# if pid had a gpu lock, release
+def gpuunlock(pid):    
+    if settings.GPU_ENABLED == False:   
+        return True
+    for index in range(0, settings.GPU_PARALLEL_PROCESSES):
+        r = redisconnection.get("metalearn.gpu.lock.%s" % index)
+        if r != None and int(r) == pid:
+            print("gpu unlocked")
+            redisconnection.delete("metalearn.gpu.lock.%s" % index)
+            return
+
+    print("NO GPU UNLOCKED")
+
 # ExperimentSet
 
 @shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
 def on_ExperimentSet_created(self, experimentSet_id):
     from .models import ExperimentSet
-    from .models import Experiment
-    print("on_ExperimentSet_created")
-    experimentSet = ExperimentSet.objects.get(id=experimentSet_id) # because autocommit..
-    
+    from .models import Experiment    
+    ExperimentSet.objects.filter(id = experimentSet_id).update(on_created_executed=True)
+
+@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
+def ExperimentSetToEnvironment_created(self, experimentSetToEnvironment_id):
+    from .models import ExperimentSetToEnvironment
+    environment_set = ExperimentSetToEnvironment.objects.get(id=experimentSetToEnvironment_id)
+    experimentSet = environment_set.experimentSet
+    combinations = []
+    for _ in range(0,environment_set.nr_of_instances):
+        for architecture_set in experimentSet.architectures_set.all():
+            for _ in range(0,architecture_set.nr_of_instances):
+                for optimiser_set in experimentSet.optimisers_set.all():
+                    for _ in range(0,optimiser_set.nr_of_instances):
+                        combinations.append( [ environment_set, architecture_set, optimiser_set])
+    _experimentSetCombinationsAdded(experimentSet, combinations)
+
+@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
+def ExperimentSetToArchitecture_created(self, experimentSetToArchitecture_id):
+    from .models import ExperimentSetToArchitecture
+    architecture_set = ExperimentSetToArchitecture.objects.get(id=experimentSetToArchitecture_id)
+    experimentSet = architecture_set.experimentSet
     combinations = []
     for environment_set in experimentSet.environments_set.all():
         for _ in range(0,environment_set.nr_of_instances):
-
-            for architecture_set in experimentSet.architectures_set.all():
                 for _ in range(0,architecture_set.nr_of_instances):
-
                     for optimiser_set in experimentSet.optimisers_set.all():
                         for _ in range(0,optimiser_set.nr_of_instances):
-
                             combinations.append( [ environment_set, architecture_set, optimiser_set])
+    _experimentSetCombinationsAdded(experimentSet, combinations)
 
+@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
+def ExperimentSetToOptimiser_created(self, experimentSetToOptimiser_id):
+    from .models import ExperimentSetToOptimiser
+    optimiser_set = ExperimentSetToOptimiser.objects.get(id=experimentSetToOptimiser_id)
+    experimentSet = optimiser_set.experimentSet
+    combinations = []
+    for environment_set in experimentSet.environments_set.all():
+        for _ in range(0,environment_set.nr_of_instances):
+            for architecture_set in experimentSet.architectures_set.all():
+                for _ in range(0,architecture_set.nr_of_instances):
+                        for _ in range(0,optimiser_set.nr_of_instances):
+                            combinations.append( [ environment_set, architecture_set, optimiser_set])
+    _experimentSetCombinationsAdded(experimentSet, combinations)
 
-    if len(combinations) > experimentSet.subsettings_Experiments_max:
-        combinations = random.sample(combinations, experimentSet.subsettings_Experiments_max)
+def _experimentSetCombinationsAdded(experimentSet, combinations):
+    from .models import Experiment
+
+    random.shuffle(combinations)
+    cnt = experimentSet.experiments.all().count()
 
     for combination in combinations:
+        if cnt >= experimentSet.subsettings_Experiments_max:
+            break
         environment_set, architecture_set, optimiser_set = combination
         experiment = Experiment()
         experiment.status = "active"
@@ -61,9 +117,9 @@ def on_ExperimentSet_created(self, experimentSet_id):
         experiment.environment  = environment_set.environment
         experiment.architecture = architecture_set.architecture
         experiment.optimiser    = optimiser_set.optimiser
-        experiment.save()
+        experiment.save()  
+        cnt += 1
 
-    ExperimentSet.objects.filter(id = experimentSet_id).update(on_created_executed=True)
 
 
 @shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
@@ -74,35 +130,9 @@ def on_ExperimentSet_done(self, experimentSet_id):
 
     experimentSet = ExperimentSet.objects.get(id=experimentSet_id)
     
-    timespend = 0.0
-    experiments = experimentSet.experiments.all()
-    for experiment in experiments:  
-        timespend += experiment.timespend
-
-    experimentSet.timespend = timespend
-    experimentSet.save()
-
-    combinations_fitnesses = {}
-    for experiment in experiments:  
-        combinationid = "%s_%s" % ( experiment.environment.id, experiment.architecture.id )
-        if combinationid not in combinations_fitnesses:
-            combinations_fitnesses[combinationid] = []
-
-        combinations_fitnesses[combinationid].append(experiment.fitness_top10)
-
-    indexes = {}
-    for key in combinations_fitnesses:
-        indexes[key] = 0
-        combinations_fitnesses[key] = rank_and_center(combinations_fitnesses[key])
-        
-    for experiment in experiments:  
-        combinationid = "%s_%s" % ( experiment.environment.id, experiment.architecture.id ) 
-        latest_episode = [e for e in experiment.episodes.all()][-1]
-        optimiserInstance = latest_episode.optimiser.getInstance()
-        optimiserInstance.reward(latest_episode, combinations_fitnesses[combinationid][indexes[combinationid]])
-        indexes[combinationid] += 1
-
-    ExperimentSet.objects.filter(id = experimentSet_id).update(on_done_executed=True)
+    timespend = sum(Experiment.objects.filter(experimentSet_id = experimentSet_id).values_list("timespend",flat=True))
+    
+    ExperimentSet.objects.filter(id = experimentSet_id).update(on_done_executed=True, timespend=timespend)
 
 
 # Experiment
@@ -112,6 +142,7 @@ def on_Experiment_created(self, experiment_id, experimentSet_id):
     p = Process(target=_on_Experiment_created, args=(self, experiment_id, experimentSet_id ))
     p.start()
     p.join()
+    gpuunlock(p.pid)
 
 def _on_Experiment_created(self, experiment_id, experimentSet_id):
     from .models import Experiment
@@ -178,11 +209,13 @@ def on_Experiment_done(self, experiment_id, experimentSet_id):
     experiment.fitness_top10 =  numpy.mean(sorted(fitnesses, reverse=True)[0:10])
     experiment.save()
 
+    latest_episode = [e for e in experiment.episodes.all()][-1]
+    optimiserInstance = latest_episode.optimiser.getInstance()
+    optimiserInstance.reward(latest_episode, latest_episode.fitness_max)
+
     experiments_to_go = Experiment.objects.filter(experimentSet_id = experimentSet_id).filter(~Q(status = "done")).count()
     if experiments_to_go == 0:
-        
         experimentSet_done = ExperimentSet.objects.filter(id = experimentSet_id).filter(~Q(status = "done")).update(status="done")
-
         if experimentSet_done == 1:
             on_commit(lambda: on_ExperimentSet_done.delay(experimentSet_id))
 
@@ -218,6 +251,7 @@ def on_Episode_done(self, episode_id, experiment_id, experimentSet_id):
     p = Process(target=_on_Episode_done, args=(self, episode_id, experiment_id, experimentSet_id ))
     p.start()
     p.join()
+    gpuunlock(p.pid)
 
 def _on_Episode_done(self, episode_id, experiment_id, experimentSet_id):
     from .models import Episode

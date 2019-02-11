@@ -8,7 +8,7 @@ from django.conf import settings
 from django.db.transaction import commit
 from django.db.transaction import on_commit
 import gc
-
+import os
 try:
     redisconnection = redis.StrictRedis(unix_socket_path='/var/run/redis/redis.sock', db=8)
     redisconnection.get("__test")
@@ -64,10 +64,7 @@ def batched_weighted_sum(weights, vecs, batch_size=500):
     return total, num_items_summed
 
 
-def _dolock(index):
-    r = redisconnection.set("metalearn.gpu.lock.%s" % index, 'true', ex=120, nx=True)
-    return r != None
-      
+
 
 def mtlock(key):
     r = redisconnection.set(key, 'true', ex=60, nx=True)
@@ -78,25 +75,31 @@ def mtlock(key):
 def mtunlock(key):
     redisconnection.delete(key)
 
-  
+def _dolock(index, pid):
+    r = redisconnection.set("metalearn.gpu.lock.%s" % index, pid, ex=180, nx=True)
+    return r != None
+     
+
+# lock gpu, dont forget to unlock after process exit.
+# this is done because tensorflow sucks and release gpu memory only on process exit.    
 def gpulock():
     if settings.GPU_ENABLED == False:   
         return True
+
+    pid = os.getpid()
+    print("Locking gpu for pid %s" % pid)
+    for index in range(0, settings.GPU_PARALLEL_PROCESSES):
+        r = redisconnection.get("metalearn.gpu.lock.%s" % index)
+        if r != None and int(r) == pid:
+            print("gpu is already locked for process")
+            return True
+
     while True:
         for index in range(0, settings.GPU_PARALLEL_PROCESSES):
-            if _dolock(index) == True:
+            if _dolock(index, pid) == True:
+                print("gpu locked")
                 return True
         time.sleep(0.3)
-
-def gpuunlock():    
-    if settings.GPU_ENABLED == False:   
-        return True
-    for index in range(0, settings.GPU_PARALLEL_PROCESSES):
-        r = redisconnection.delete("metalearn.gpu.lock.%s" % index)
-        if r >= 1:
-            return True
-    return False
-
 
 
 class AdamOptimizer(object):
@@ -195,20 +198,18 @@ class BaseOptimiser():
         pass
 
     def getNrOfTrainableParameters(self, environment, architecture):
-
-        gpulock()
-        
         num_params = 0
         cache_key = "%s_%s.num_params" % (environment.name, architecture.name)
         c = redisconnection.get(cache_key)
         if c != None:
             num_params = int(c)
         else:
+
             env = environment.getInstance()
             env.initialize()
 
             arch = architecture.getInstance()
-            arch.initialize(env.observation_space, env.action_space)
+            arch.initialize(env.observation_space, env.action_space, usegpu = False)
       
             num_params = arch.num_params
             env.close()
@@ -218,13 +219,11 @@ class BaseOptimiser():
             raise Exception("Failed to get number of trainable parameters for arch '%s'  env '%s'" % (architecture.name, environment.name))
         
         redisconnection.set(cache_key, num_params)
-        redisconnection.expire(cache_key,30)
-
-        on_commit(lambda: gpuunlock())
-
+        redisconnection.expire(cache_key,90)
 
         print("getNrOfTrainableParameters for %s  -  %s  : %s" % (environment, architecture, num_params))
         return num_params
+
     def close(self):
         pass
 
@@ -554,10 +553,9 @@ class OptimiserMetaES(BaseOptimiser):
             e1.save()
             e2.save()
             e3.save()
-            
         
         on_commit(lambda: mtunlock("OptimiserMetaES.__init__.lock"))
-
+        
         self.parameters = {
             "num_params" : -1,              # number of model parameters
             "nr_of_embeddings_per_weight" : self.nr_of_embeddings_per_weight,  
@@ -629,8 +627,6 @@ class OptimiserMetaES(BaseOptimiser):
             "embeddings_per_weight" : new_embeddings_per_weight,
             "embeddings" : new_embeddings,
         },2)  
-
-        on_commit(lambda: gpuunlock())
 
         return  [ weightsNoise, optimiserMetaData, optimiserData, new_count_factor, new_timespend_factor, new_steps_factor]
 
@@ -719,8 +715,6 @@ class OptimiserMetaES(BaseOptimiser):
             "embeddings_per_weight" : new_embeddings_per_weight,
             "embeddings" : new_embeddings,
         },2)  
-
-        gpuunlock()
 
         return  [ weightsNoise, optimiserMetaData, optimiserData, new_count_factor, new_timespend_factor, new_steps_factor]
 

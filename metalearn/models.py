@@ -194,9 +194,9 @@ class ExperimentSet(models.Model):
     # Settings for EpisodeNoisyExecution created by Episodes created by Experiments created by this ExperimentSet
     subsettings_EpisodeNoisyExecutions_min = models.BigIntegerField(default=10) # 
     subsettings_EpisodeNoisyExecutions_max = models.BigIntegerField(default=100 ) # nr of EpisodeNoisyExecution per Episode per Experiment
-    subsettings_EpisodeNoisyExecutions_min_steps = models.BigIntegerField(default=10000)   # 
+    subsettings_EpisodeNoisyExecutions_min_steps = models.BigIntegerField(default=100)   # 
     subsettings_EpisodeNoisyExecutions_max_steps = models.BigIntegerField(default=10000)  # steps per NoisyExecutions
-    subsettings_EpisodeNoisyExecutions_min_timespend = models.BigIntegerField(default=120) # 
+    subsettings_EpisodeNoisyExecutions_min_timespend = models.BigIntegerField(default=10) # 
     subsettings_EpisodeNoisyExecutions_max_timespend = models.BigIntegerField(default=120)# max time per NoisyExecutions, in seconds
     
     # stats
@@ -226,15 +226,37 @@ class ExperimentSetToEnvironment(models.Model):
     experimentSet = models.ForeignKey(ExperimentSet, on_delete=models.CASCADE, related_name='environments_set')
     environment = models.ForeignKey(Environment, on_delete=models.CASCADE)
     nr_of_instances = models.BigIntegerField(default=1)
+
+    def save(self, *args, **kwargs):
+        isNew = self.id == None
+        super(ExperimentSetToEnvironment, self).save(*args, **kwargs)      
+        if isNew == True:
+            on_commit(lambda: tasks.ExperimentSetToEnvironment_created.delay(self.id))
+            
+
 class ExperimentSetToArchitecture(models.Model):
     experimentSet = models.ForeignKey(ExperimentSet, on_delete=models.CASCADE, related_name='architectures_set')
     architecture = models.ForeignKey(Architecture, on_delete=models.CASCADE)
     nr_of_instances = models.BigIntegerField(default=1)
+
+    def save(self, *args, **kwargs):
+        isNew = self.id == None
+        super(ExperimentSetToArchitecture, self).save(*args, **kwargs)      
+        if isNew == True:
+            on_commit(lambda: tasks.ExperimentSetToArchitecture_created.delay(self.id))
+            
+
 class ExperimentSetToOptimiser(models.Model):
     experimentSet = models.ForeignKey(ExperimentSet, on_delete=models.CASCADE, related_name='optimisers_set')
     optimiser = models.ForeignKey(Optimiser, on_delete=models.CASCADE)
     nr_of_instances = models.BigIntegerField(default=1)
 
+    def save(self, *args, **kwargs):
+        isNew = self.id == None
+        super(ExperimentSetToOptimiser, self).save(*args, **kwargs)      
+        if isNew == True:
+            on_commit(lambda: tasks.ExperimentSetToOptimiser_created.delay(self.id))
+        
 
 class Experiment(models.Model):
     id       = models.BigAutoField(primary_key=True)
