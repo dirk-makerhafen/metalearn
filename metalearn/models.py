@@ -226,37 +226,14 @@ class ExperimentSetToEnvironment(models.Model):
     experimentSet = models.ForeignKey(ExperimentSet, on_delete=models.CASCADE, related_name='environments_set')
     environment = models.ForeignKey(Environment, on_delete=models.CASCADE)
     nr_of_instances = models.BigIntegerField(default=1)
-
-    def save(self, *args, **kwargs):
-        isNew = self.id == None
-        super(ExperimentSetToEnvironment, self).save(*args, **kwargs)      
-        if isNew == True:
-            on_commit(lambda: tasks.ExperimentSetToEnvironment_created.delay(self.id))
-            
-
 class ExperimentSetToArchitecture(models.Model):
     experimentSet = models.ForeignKey(ExperimentSet, on_delete=models.CASCADE, related_name='architectures_set')
     architecture = models.ForeignKey(Architecture, on_delete=models.CASCADE)
     nr_of_instances = models.BigIntegerField(default=1)
-
-    def save(self, *args, **kwargs):
-        isNew = self.id == None
-        super(ExperimentSetToArchitecture, self).save(*args, **kwargs)      
-        if isNew == True:
-            on_commit(lambda: tasks.ExperimentSetToArchitecture_created.delay(self.id))
-            
-
 class ExperimentSetToOptimiser(models.Model):
     experimentSet = models.ForeignKey(ExperimentSet, on_delete=models.CASCADE, related_name='optimisers_set')
     optimiser = models.ForeignKey(Optimiser, on_delete=models.CASCADE)
     nr_of_instances = models.BigIntegerField(default=1)
-
-    def save(self, *args, **kwargs):
-        isNew = self.id == None
-        super(ExperimentSetToOptimiser, self).save(*args, **kwargs)      
-        if isNew == True:
-            on_commit(lambda: tasks.ExperimentSetToOptimiser_created.delay(self.id))
-        
 
 class Experiment(models.Model):
     id       = models.BigAutoField(primary_key=True)

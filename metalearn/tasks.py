@@ -51,64 +51,30 @@ def gpuunlock(pid):
     print("NO GPU UNLOCKED")
 
 # ExperimentSet
-
 @shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
 def on_ExperimentSet_created(self, experimentSet_id):
     from .models import ExperimentSet
-    from .models import Experiment    
-    ExperimentSet.objects.filter(id = experimentSet_id).update(on_created_executed=True)
-
-@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
-def ExperimentSetToEnvironment_created(self, experimentSetToEnvironment_id):
-    from .models import ExperimentSetToEnvironment
-    environment_set = ExperimentSetToEnvironment.objects.get(id=experimentSetToEnvironment_id)
-    experimentSet = environment_set.experimentSet
-    combinations = []
-    for _ in range(0,environment_set.nr_of_instances):
-        for architecture_set in experimentSet.architectures_set.all():
-            for _ in range(0,architecture_set.nr_of_instances):
-                for optimiser_set in experimentSet.optimisers_set.all():
-                    for _ in range(0,optimiser_set.nr_of_instances):
-                        combinations.append( [ environment_set, architecture_set, optimiser_set])
-    _experimentSetCombinationsAdded(experimentSet, combinations)
-
-@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
-def ExperimentSetToArchitecture_created(self, experimentSetToArchitecture_id):
-    from .models import ExperimentSetToArchitecture
-    architecture_set = ExperimentSetToArchitecture.objects.get(id=experimentSetToArchitecture_id)
-    experimentSet = architecture_set.experimentSet
+    from .models import Experiment
+    print("on_ExperimentSet_created")
+    experimentSet = ExperimentSet.objects.get(id=experimentSet_id) # because autocommit..
+    
     combinations = []
     for environment_set in experimentSet.environments_set.all():
         for _ in range(0,environment_set.nr_of_instances):
-                for _ in range(0,architecture_set.nr_of_instances):
-                    for optimiser_set in experimentSet.optimisers_set.all():
-                        for _ in range(0,optimiser_set.nr_of_instances):
-                            combinations.append( [ environment_set, architecture_set, optimiser_set])
-    _experimentSetCombinationsAdded(experimentSet, combinations)
 
-@shared_task( bind=True, autoretry_for=(Exception,), exponential_backoff=3, retry_kwargs={'max_retries': 5, 'countdown': 5})
-def ExperimentSetToOptimiser_created(self, experimentSetToOptimiser_id):
-    from .models import ExperimentSetToOptimiser
-    optimiser_set = ExperimentSetToOptimiser.objects.get(id=experimentSetToOptimiser_id)
-    experimentSet = optimiser_set.experimentSet
-    combinations = []
-    for environment_set in experimentSet.environments_set.all():
-        for _ in range(0,environment_set.nr_of_instances):
             for architecture_set in experimentSet.architectures_set.all():
                 for _ in range(0,architecture_set.nr_of_instances):
+
+                    for optimiser_set in experimentSet.optimisers_set.all():
                         for _ in range(0,optimiser_set.nr_of_instances):
+
                             combinations.append( [ environment_set, architecture_set, optimiser_set])
-    _experimentSetCombinationsAdded(experimentSet, combinations)
 
-def _experimentSetCombinationsAdded(experimentSet, combinations):
-    from .models import Experiment
 
-    random.shuffle(combinations)
-    cnt = experimentSet.experiments.all().count()
+    if len(combinations) > experimentSet.subsettings_Experiments_max:
+        combinations = random.sample(combinations, experimentSet.subsettings_Experiments_max)
 
     for combination in combinations:
-        if cnt >= experimentSet.subsettings_Experiments_max:
-            break
         environment_set, architecture_set, optimiser_set = combination
         experiment = Experiment()
         experiment.status = "active"
@@ -117,8 +83,9 @@ def _experimentSetCombinationsAdded(experimentSet, combinations):
         experiment.environment  = environment_set.environment
         experiment.architecture = architecture_set.architecture
         experiment.optimiser    = optimiser_set.optimiser
-        experiment.save()  
-        cnt += 1
+        experiment.save()
+
+    ExperimentSet.objects.filter(id = experimentSet_id).update(on_created_executed=True)
 
 
 

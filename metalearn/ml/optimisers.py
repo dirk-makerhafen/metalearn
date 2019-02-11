@@ -5,8 +5,8 @@ import pickle
 import time
 from gym import spaces
 from django.conf import settings
-from django.db.transaction import commit
-from django.db.transaction import on_commit
+from django.db import transaction
+
 import gc
 import os
 try:
@@ -545,16 +545,16 @@ class OptimiserMetaES(BaseOptimiser):
             self.experimentSet.subsettings_EpisodeNoisyExecutions_min_timespend = 1 # ignored for opti meta training
             self.experimentSet.subsettings_EpisodeNoisyExecutions_max_timespend = 2
 
-            self.experimentSet.save()
-
-            e1 = ExperimentSetToEnvironment(experimentSet=self.experimentSet, environment = self.optimiserenvironment, nr_of_instances = 1)
-            e2 = ExperimentSetToArchitecture(experimentSet=self.experimentSet, architecture = self.optimiserarchitecture, nr_of_instances = 1)
-            e3 = ExperimentSetToOptimiser(experimentSet=self.experimentSet, optimiser = self.optimiseroptimiser, nr_of_instances = 1)
-            e1.save()
-            e2.save()
-            e3.save()
-        
-        on_commit(lambda: mtunlock("OptimiserMetaES.__init__.lock"))
+            with transaction.atomic():
+                self.experimentSet.save()
+                e1 = ExperimentSetToEnvironment(experimentSet=self.experimentSet, environment = self.optimiserenvironment, nr_of_instances = 1)
+                e2 = ExperimentSetToArchitecture(experimentSet=self.experimentSet, architecture = self.optimiserarchitecture, nr_of_instances = 1)
+                e3 = ExperimentSetToOptimiser(experimentSet=self.experimentSet, optimiser = self.optimiseroptimiser, nr_of_instances = 1)
+                e1.save()
+                e2.save()
+                e3.save()
+            
+        transaction.on_commit(lambda: mtunlock("OptimiserMetaES.__init__.lock"))
         
         self.parameters = {
             "num_params" : -1,              # number of model parameters
