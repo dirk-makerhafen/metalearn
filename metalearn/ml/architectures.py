@@ -67,7 +67,8 @@ class Architecture():
         print("initialize.initialize done")
 
     def reset(self, weights):
-        self.set_weights(weights)
+        with self.graph.as_default():
+            self.set_weights(weights)
         # reset to a state as if initialize was just run
 
     def run(self, inputvals):
@@ -79,10 +80,13 @@ class Architecture():
         return outputs
 
     def set_weights(self, weights):
-        self._setfromflat(weights)
+        with self.graph.as_default():
+            self._setfromflat(weights)
     
     def get_weights(self):
-        return self._getflat()
+        with self.graph.as_default():
+            r = self._getflat()
+        return r
 
     def _add_batch_dim(self, inputvals):
         for i in range(0,len(inputvals)):
