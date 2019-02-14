@@ -155,7 +155,6 @@ def run():
         print("#################")
         print(noisyExecution)
 
-        start = time.time()
 
         weightsNoise = weightsNoiseCache.get(noisyExecution["episode.id"])  # [0] -> Weights , [1] -> NoiseLevels
         weights_new = (weightsNoise[0] + (weightsNoise[1] * createNoise(noisyExecution["noiseseed"], len(weightsNoise[0] ) ) ))
@@ -188,6 +187,7 @@ def run():
         fitness = 0
         steps = 0
         first_rewarded_step = 0
+        start = time.time()
 
         while environment.hasNextObservation():
             observation = environment.getNextObservation()
