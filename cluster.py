@@ -52,6 +52,7 @@ class remote_scripts():
 
         rm db.sqlite*
         rm -r metalearn/migrations
+        rm -r /tmp/WeightsNoiseCache/*.cache
 
         python3 manage.py makemigrations
         python3 manage.py makemigrations metalearn
