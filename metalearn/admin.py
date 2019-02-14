@@ -48,7 +48,7 @@ class Episode_Admin(admin.ModelAdmin):
 
 
 class ExperimentNoisyExecution_Admin(admin.ModelAdmin):
-    list_display = ('id', "created", 'status', "timespend", "noiseseed",  "fitness", "fitness_rank", "fitness_calc_key","fitness_calc_value", "client", "environment", "architecture", "optimiser", "experimentSet", "experiment", "episode" )
+    list_display = ('id', "created", 'status', "timespend", "noiseseed",  "fitness", "fitness_rank", "client", "environment", "architecture", "optimiser", "experimentSet", "experiment", "episode" )
     list_filter = ('status',)
     actions = [action_ExperimentNoisyExecution_setIdleUnlocked]
 

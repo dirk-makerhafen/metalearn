@@ -104,27 +104,48 @@ class EnvironmentMnist(EnvironmentInstance):
 #this is used by tasks.py on_Experiment_created when the optimiser of the optimiser experiment is initialized
 class OptimiserMetaESEnvironment(EnvironmentInstance):
     def __init__(self,nr_of_embeddings_per_weight, nr_of_embeddings):
-        num_params = 10 # ! this must not influence the network size in term of lernable parameters, its just a placeholder.
+        nr_of_weights = 10 # ! this must not influence the network size in term of lernable parameters, its just a placeholder.
         
         self.observation_space = spaces.Tuple((
-            spaces.Box(low=0,    high=100, shape=[ num_params, nr_of_embeddings_per_weight ]),   # per_weight_embeddings
-            spaces.Box(low=-180, high=180, shape=[ num_params ]),  # used_weights
-            spaces.Box(low=-180, high=180, shape=[ nr_of_embeddings ]),  # embedding
-            spaces.Box(low=-180, high=180, shape=[ 1 ]), # episode nr   
-            spaces.Box(low=-180, high=180, shape=[ 1 ]), # fitness
-            spaces.Box(low=0,    high=1,   shape=[ 1 ]), # rank
-            spaces.Box(low=-180, high=180, shape=[ 1 ]), # steps
-            spaces.Box(low=0,    high=1,   shape=[ 1 ]), # nr_of_noisy execution per expisode
-        ))
+            # meta data embedding
+            spaces.Box(low=-1, high=1, shape=[ nr_of_weights, nr_of_embeddings_per_weight ]),# per_weight_embeddings
+            spaces.Box(low=-1, high=1, shape=[ nr_of_embeddings ]),  # embedding
 
+            # noisyExecution data
+            spaces.Box(low=-180, high=180, shape=[ nr_of_weights ]),  # used_weights
+
+            spaces.Box(low=-1, high=1, shape=[ 8 ]), # noisyExecution meta data 
+            #spaces.Box(low=-1, high=1, shape=[ 1 ]), # fitness                via fitness/abs(fitness) * tanh( log( 1 + log( 1 + abs(fitness)) ) )  # sign * loglog scale
+            #spaces.Box(low=-1, high=1, shape=[ 1 ]), # fitness_scaled
+            #spaces.Box(low= 0, high=1, shape=[ 1 ]), # fitness_rank
+            #spaces.Box(low=-1, high=1, shape=[ 1 ]), # fitness_norm           via fitness/abs(fitness) * tanh( log( 1 + log( 1 + abs(fitness)) ) )  # sign * loglog scale 
+            #spaces.Box(low=-1, high=1, shape=[ 1 ]), # fitness_norm_scaled
+            #spaces.Box(low= 0, high=1, shape=[ 1 ]), # steps                  via tanh( log( 1 + log( 1 + steps) ) )
+            #spaces.Box(low= 0, high=1, shape=[ 1 ]), # first_rewarded_step    via tanh( log( 1 + log( 1 + first_rewarded_step) ) )
+            #spaces.Box(low= 0, high=1, shape=[ 1 ]), # timespend              via tanh( log( 1 + log( 1 + timespend) ) )
+
+            # episode data
+            spaces.Box(low=0,  high=1, shape=[ 8 ]),  # episode meta data
+            #spaces.Box(low=0,  high=1, shape=[ 1 ]), # episode_nr             via tanh( log( 1 + log( 1 + episode_nr) ) )
+            #spaces.Box(low=0,  high=1, shape=[ 1 ]), # noisyExecutions_min    via tanh( log( 1 + log( 1 + noisyExecutions_min) ) )
+            #spaces.Box(low=0,  high=1, shape=[ 1 ]), # noisyExecutions_max    via tanh( log( 1 + log( 1 + noisyExecutions_max) ) )
+            #spaces.Box(low=0,  high=1, shape=[ 1 ]), # noisyExecutions_actual via tanh( log( 1 + log( 1 + noisyExecutions_actual) ) )
+            #spaces.Box(low=0,  high=1, shape=[ 1 ]), # steps_min              via tanh( log( 1 + log( 1 + steps_min) ) )
+            #spaces.Box(low=0,  high=1, shape=[ 1 ]), # steps_max              via tanh( log( 1 + log( 1 + steps_max) ) )
+            #spaces.Box(low=0,  high=1, shape=[ 1 ]), # timespend_min          via tanh( log( 1 + log( 1 + timespend_min) ) )
+            #spaces.Box(low=0,  high=1, shape=[ 1 ]), # timespend_max          via tanh( log( 1 + log( 1 + timespend_max) ) )
+        ))
+                
         self.action_space = spaces.Tuple((
-            spaces.Box(low=0,    high=100, shape=[ num_params, nr_of_embeddings_per_weight ]),   #per_weight_embeddings
-            spaces.Box(low=-180, high=180, shape=[ num_params ]),  # new Weights
-            spaces.Box(low=-180, high=180, shape=[ num_params ]),  # new noise
+            spaces.Box(low=0, high=1, shape=[ nr_of_weights, nr_of_embeddings_per_weight ]),   #per_weight_embeddings
             spaces.Box(low=0, high=1, shape=[ nr_of_embeddings ]),  # embedding
-            spaces.Box(low=0, high=1, shape=[ 1 ]),  # count_factor
-            spaces.Box(low=0, high=1, shape=[ 1 ]),  # timespend_factor
-            spaces.Box(low=0, high=1, shape=[ 1 ]),  # steps_factor
+            spaces.Box(low=-180, high=180, shape=[ nr_of_weights ]),  # new Weights
+            spaces.Box(low=-180, high=180, shape=[ nr_of_weights ]),  # new noise
+            spaces.Box(low=0, high=1, shape=[ 4 ]),  # out_factors
+            #spaces.Box(low=0, high=1, shape=[ 1 ]),  # noisyExecutions_max_factor
+            #spaces.Box(low=0, high=1, shape=[ 1 ]),  # timespend_factor
+            #spaces.Box(low=0, high=1, shape=[ 1 ]),  # steps_factor
+            #spaces.Box(low=0, high=1, shape=[ 1 ]),  # steps_unrewarded_factor
         ))   
 
     def initialize(self):
@@ -146,7 +167,7 @@ class OptimiserMetaESEnvironment(EnvironmentInstance):
         pass
 
 
-class OpenAiGymEnvironmentInstance(EnvironmentInstance):
+class OpenAiGym(EnvironmentInstance):
     def __init__(self, gymname):
         self.gymname = gymname
         self.gym = None
@@ -204,32 +225,38 @@ class OpenAiGymEnvironmentInstance(EnvironmentInstance):
 # create these if you db is empty
 default_models = [
         {
-            "name":"Atari Frostbite-v0",
+            "name":"Frostbite-v0",
+            "groupname":"Atari",
             "description": "",
-            "classname":"OpenAiGymEnvironmentInstance",
+            "classname":"OpenAiGym",
             "classargs":[[ "gymname", "Frostbite-v0"]],
         },{
-            "name":"Atari FreewayNoFrameskip-v4",
+            "name":"FreewayNoFrameskip-v4",
+            "groupname":"Atari",
             "description": "",
-            "classname":"OpenAiGymEnvironmentInstance",
+            "classname":"OpenAiGym",
             "classargs":[[ "gymname", "FreewayNoFrameskip-v4"]],
         },{
-            "name":"Atari Alien-v0",
+            "name":"Alien-v0",
+            "groupname":"Atari",
             "description": "",
-            "classname":"OpenAiGymEnvironmentInstance",
+            "classname":"OpenAiGym",
             "classargs":[[ "gymname", "Alien-v0"]],
         },{
-            "name":"Atari Pong-v0",
+            "name":"Pong-v0",
+            "groupname":"Atari",
             "description": "",
-            "classname":"OpenAiGymEnvironmentInstance",
+            "classname":"OpenAiGym",
             "classargs":[[ "gymname", "Pong-v0"]],
         },{
-            "name":"Atari Gravitar-v0",
+            "name":"Gravitar-v0",
+            "groupname":"Atari",
             "description": "",
-            "classname":"OpenAiGymEnvironmentInstance",
+            "classname":"OpenAiGym",
             "classargs":[[ "gymname", "Gravitar-v0"]],
         },{
             "name":"OptimiserMetaESEnvironment",
+            "groupname":"Optimiser",
             "description": "",
             "classname":"OptimiserMetaESEnvironment",
             "classargs":[["nr_of_embeddings_per_weight",5] , [ "nr_of_embeddings", 20 ] ],
@@ -239,7 +266,7 @@ default_models = [
 
 
 '''
-class aaOpenAiGymEnvironmentInstance():
+class aaOpenAiGym():
     def __init__(self, name):
         self.name = name
 

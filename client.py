@@ -158,7 +158,7 @@ def run():
         start = time.time()
 
         weightsNoise = weightsNoiseCache.get(noisyExecution["episode.id"])  # [0] -> Weights , [1] -> NoiseLevels
-        weights_new = weightsNoise[0] + (weightsNoise[1] * createNoise(noisyExecution["noiseseed"], len(weightsNoise[0] ) ) )
+        weights_new = (weightsNoise[0] + (weightsNoise[1] * createNoise(noisyExecution["noiseseed"], len(weightsNoise[0] ) ) ))
 
         weightsNoise = None # speedup memory free
 
@@ -168,7 +168,7 @@ def run():
             environment = last_environment
             environment.reset()
             architecture = last_architecture
-            architecture.reset(weights_new)
+            architecture.reset(weights_new.astype(architecture.dtype.np))
         else:
             print("Using NEW env/arch")
                         
@@ -179,7 +179,7 @@ def run():
             environment = getEnvironmentInstance(noisyExecution)
             architecture = getArchitectureInstance(noisyExecution)
             environment.initialize()
-            architecture.initialize(environment.observation_space, environment.action_space, weights_new)
+            architecture.initialize(environment.observation_space, environment.action_space, weights_new.astype(architecture.dtype.np))
         
         weights_new = None # free memory 
         last_architecture = architecture
@@ -187,6 +187,7 @@ def run():
         last_envarchkey = envarchkey
         fitness = 0
         steps = 0
+        first_rewarded_step = 0
 
         while environment.hasNextObservation():
             observation = environment.getNextObservation()
@@ -194,6 +195,11 @@ def run():
             fitness += environment.runAction(action[0]) 
             #env.env.render()
             steps += 1
+
+            if first_rewarded_step == 0 and fitness != 0:
+                first_rewarded_step = steps
+            if fitness == 0 and steps >= noisyExecution["max_steps_unrewarded"]:
+                break
             if steps >= noisyExecution["max_steps"]:
                 break
             if int(time.time() - start) >= noisyExecution["max_timespend"]:
@@ -203,9 +209,10 @@ def run():
         results = json.dumps({
             "fitness" : fitness,
             "steps" : steps,
+            "first_rewarded_step" : first_rewarded_step,
             "timespend" : ts,
         })
-        print("%s  |  %s  | Steps: %s \tTime: %s \tFitness: %s" % (noisyExecution["environment.classname"], noisyExecution["architecture.classname"],  steps, ts, fitness))
+        print("%s  |  %s  | Steps: %s \tTime: %s \tFitness: %s FirstRewardedStep: %s" % (noisyExecution["environment.classname"], noisyExecution["architecture.classname"],  steps, ts, fitness, first_rewarded_step))
 
         while True:
             try:

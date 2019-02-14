@@ -45,9 +45,9 @@ def switch(condition, then_expression, else_expression):
 
 # Extras
 # ----------------------------------------
-def l2loss(params):
+def l2loss(params, dtype=tf.float32):
     if len(params) == 0:
-        return tf.constant(0.0)
+        return tf.constant(0.0,dtype = dtype)
     else:
         return tf.add_n([sum(tf.square(p)) for p in params])
 def lrelu(x, leak=0.2):
@@ -106,17 +106,22 @@ def save_state(fname):
 def normc_initializer(std=1.0):
     def _initializer(shape, dtype=None, partition_info=None): #pylint: disable=W0613
         def py_func_init():
-            out = np.random.randn(np.prod(shape[:-1]), shape[-1]).astype(np.float32)
+            if dtype == tf.float32:
+                np_dtype = np.float32
+            if dtype == tf.float16:
+                np_dtype = np.float16
+
+            out = np.random.randn(np.prod(shape[:-1]), shape[-1]).astype(np_dtype)
             out *= std / np.sqrt(np.square(out).sum(axis=0, keepdims=True))
             out = np.reshape(out, shape)
             return out
 
-        result = tf.py_func(py_func_init, [], tf.float32)
+        result = tf.py_func(py_func_init, [], dtype)
         result.set_shape(shape)
         return result
     return _initializer
 
-def _normalize(x, std):
+def _normalize(x, std, dtype):
     def py_func_init(out):
         shape = out.shape
         out = np.reshape(out, [-1, shape[-1]])
@@ -124,17 +129,17 @@ def _normalize(x, std):
         out = np.reshape(out, shape)
         return out
 
-    return x.assign(tf.py_func(py_func_init, [x], tf.float32))
+    return x.assign(tf.py_func(py_func_init, [x], x.dtype.base_dtype))
 
 def conv(x, kernel_size, num_outputs, name, stride=1, padding="SAME", bias=True, std=1.0):
     assert len(x.get_shape()) == 4
-    w = tf.get_variable(name + "/w", [kernel_size, kernel_size, x.get_shape()[-1], num_outputs], initializer=normc_initializer(std))
+    w = tf.get_variable(name + "/w", [kernel_size, kernel_size, x.get_shape()[-1], num_outputs], initializer=normc_initializer(std), dtype=x.dtype.base_dtype)
 
-    w.reinitialize = _normalize(w, std=std)
+    w.reinitialize = _normalize(w, std=std, dtype = x.dtype.base_dtype)
 
     ret = tf.nn.conv2d(x, w, [1, stride, stride, 1], padding=padding)
     if bias:
-        b = tf.get_variable(name + "/b", [1, 1, 1, num_outputs], initializer=tf.zeros_initializer)
+        b = tf.get_variable(name + "/b", [1, 1, 1, num_outputs], initializer=tf.zeros_initializer, dtype=x.dtype.base_dtype)
 
         b.reinitialize = b.assign(tf.zeros_like(b))
         #b = tf.Print(b, [b, w], name + 'last_bias,w=' )
@@ -143,13 +148,13 @@ def conv(x, kernel_size, num_outputs, name, stride=1, padding="SAME", bias=True,
         return ret
 
 def dense(x, size, name, weight_init=None, bias=True, std=1.0):
-    w = tf.get_variable(name + "/w", [x.get_shape()[1], size], initializer=weight_init)
+    w = tf.get_variable(name + "/w", [x.get_shape()[1], size], initializer=weight_init, dtype=x.dtype.base_dtype)
 
-    w.reinitialize = _normalize(w, std=std)
+    w.reinitialize = _normalize(w, std=std, dtype=x.dtype.base_dtype)
 
     ret = tf.matmul(x, w)
     if bias:
-        b = tf.get_variable(name + "/b", [size], initializer=tf.zeros_initializer)
+        b = tf.get_variable(name + "/b", [size], initializer=tf.zeros_initializer, dtype=x.dtype.base_dtype)
 
         b.reinitialize = b.assign(tf.zeros_like(b))
         #b = tf.Print(b, [b, w], name + 'last_bias,w=' )

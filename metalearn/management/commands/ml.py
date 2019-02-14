@@ -37,16 +37,17 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if options["action"] == "loaddefaults":
             for defaults,_class in [[default_architectures, Architecture],[default_environments, Environment],[default_optimisers, Optimiser]]:
-                for default_architecture in defaults: 
-                    a = _class()
-                    a.name = default_architecture["name"]
-                    a.description = default_architecture["description"]
-                    a.classname = default_architecture["classname"]
-                    a.classargs = json.dumps(default_architecture["classargs"])
+                for default_def in defaults: 
+                    o = _class()
+                    o.name = default_def["name"]
+                    o.groupname = default_def["groupname"]
+                    o.description = default_def["description"]
+                    o.classname = default_def["classname"]
+                    o.classargs = json.dumps(default_def["classargs"])
                     try:
-                        a.save()
+                        o.save()
                     except: 
-                        print("Already exists: %s \tArgs: %s" % (a.classname, a.classargs))
+                        print("Already exists: %s \tArgs: %s" % (o.classname, o.classargs))
 
         elif options["action"] == "storage" and options["argument0"] != None :
             self.handle_storage(*args, **options)

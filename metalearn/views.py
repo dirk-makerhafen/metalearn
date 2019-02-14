@@ -301,6 +301,7 @@ def getEpisodeNoisyExecution(request, preferedEpisodeIds = ''):
             "episode.id"        : episodeNoisyExecution.episode.id,
             "max_timespend"     : episodeNoisyExecution.episode.subsettings_EpisodeNoisyExecutions_max_timespend,
             "max_steps"         : episodeNoisyExecution.episode.subsettings_EpisodeNoisyExecutions_max_steps,
+            "max_steps_unrewarded"   : episodeNoisyExecution.episode.subsettings_EpisodeNoisyExecutions_max_steps_unrewarded,
             "environment.classname"  : episodeNoisyExecution.environment.classname,
             "environment.classargs"  : episodeNoisyExecution.environment.classargs,
             "architecture.classname" : episodeNoisyExecution.architecture.classname,

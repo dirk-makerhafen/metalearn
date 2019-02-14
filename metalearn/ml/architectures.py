@@ -16,15 +16,29 @@ def createNoise(seed, width):
     r = np.random.RandomState(seed)
     return r.randn(width).astype(np.float32)
 
+class mixFloat():
+    def __init__(self, tf_or_np_float):
+        if   tf_or_np_float in [ np.float32, tf.float32, "float32" ]:
+            self.tf = tf.float32
+            self.np = np.float32
+
+        elif tf_or_np_float in [ np.float16, tf.float16, "float16" ]:
+            self.tf = tf.float16
+            self.np = np.float16
+
+        else:
+            raise Exception("Unkown input type %s" % type(tf_or_np_float))
 
 class Architecture():
+    def __init__(self):
+        self.dtype = mixFloat(tf.float32)
+
     def initialize(self, input_space, output_space, weights = None, usegpu=True):
         print("initialize.initialize")
         self.input_space = input_space
         self.output_space = output_space
         self.inputs = []
         self.outputs = []
-
         self.graph = tf.Graph()
         self.session = None
 
@@ -36,7 +50,7 @@ class Architecture():
 
             self.trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.scope.name)
             self.num_params = sum(int(np.prod(v.get_shape().as_list())) for v in self.trainable_variables)
-            self._setfromflat = tf_util.SetFromFlat(self.trainable_variables)
+            self._setfromflat = tf_util.SetFromFlat(self.trainable_variables, dtype = self.dtype.tf)
             self._getflat = tf_util.GetFlat(self.trainable_variables)
 
             
@@ -73,6 +87,9 @@ class Architecture():
 
     def run(self, inputvals):
         assert len(inputvals) == len(self.inputs)
+        
+        for i in range(0,len(inputvals)):
+            inputvals[i] = inputvals[i].astype(self.dtype.np)
         inputvals = self._add_batch_dim(inputvals)
         feed_dict = dict(zip(self.inputs, inputvals))
         outputs = self.session.run(self.outputs, feed_dict=feed_dict)
@@ -107,8 +124,9 @@ class Architecture():
 
 
 class Architecture_GAAtariPolicy(Architecture):
-    def __init__(self, nonlin_type):
+    def __init__(self, nonlin_type, dtype):
         self.nonlin_type = nonlin_type
+        self.dtype = mixFloat(dtype)
 
     def _initialize(self):
         print("Architecture_GAAtariPolicy._initialize")
@@ -120,7 +138,7 @@ class Architecture_GAAtariPolicy(Architecture):
 
 
         with tf.variable_scope(type(self).__name__) as scope:
-            o = tf.placeholder(tf.float32, [None] + list(self.ob_space_shape))
+            o = tf.placeholder(self.dtype.tf, [None] + list(self.ob_space_shape))
 
             x = o
             x = self.nonlin(tf_util.conv(x, name='conv1', num_outputs=16, kernel_size=8, stride=4, std=1.0))
@@ -135,17 +153,21 @@ class Architecture_GAAtariPolicy(Architecture):
 
             self.inputs = [o]
             self.outputs = [a]
+            print(o, a)
             return scope
 
 
 class Architecture_ESAtariPolicy(Architecture):
+    def __init__(self):
+        self.dtype = mixFloat(tf.float32)
+
     def _initialize(self):
         self.ob_space_shape = self.input_space.shape
         self.ac_space = self.output_space
         self.num_actions = self.ac_space.n
 
         with tf.variable_scope(type(self).__name__) as scope:
-            o = tf.placeholder(tf.float32, [None] + list(self.ob_space_shape))
+            o = tf.placeholder(self.dtype.tf, [None] + list(self.ob_space_shape))
 
             x = layers.convolution2d(o, num_outputs=16, kernel_size=8, stride=4, activation_fn=None, scope='conv1')
             x = layers.batch_norm(x, scale=True, is_training=False, decay=0., updates_collections=None, activation_fn=tf.nn.relu, epsilon=1e-3)
@@ -167,6 +189,7 @@ class Architecture_MujocoPolicy(Architecture):
     def __init__(self, nonlin_type, hidden_dims):
         self.nonlin_type = nonlin_type    
         self.hidden_dims = hidden_dims
+        self.dtype = mixFloat(tf.float32)
 
     def _initialize(self ):
         self.ob_space_shape = self.input_space.shape
@@ -178,7 +201,7 @@ class Architecture_MujocoPolicy(Architecture):
 
         with tf.variable_scope(type(self).__name__) as scope:
             # Policy network
-            o = tf.placeholder(tf.float32, [None] + list(self.ob_space_shape))
+            o = tf.placeholder(self.dtype.tf, [None] + list(self.ob_space_shape))
             o = tf.clip_by_value((o - ob_mean) / ob_std, -5.0, 5.0)
 
             x = o
@@ -198,27 +221,25 @@ class Architecture_MetaES(Architecture):
     def __init__(self, nr_of_embeddings_per_weight, nr_of_embeddings):
         self.nr_of_embeddings_per_weight = nr_of_embeddings_per_weight    
         self.nr_of_embeddings = nr_of_embeddings    
+        self.dtype = mixFloat(tf.float32)
 
     def _initialize(self ):
         with tf.variable_scope(type(self).__name__) as scope:
             nr_of_weights  = self.input_space.spaces[0].shape[0]
             assert self.nr_of_embeddings_per_weight == self.input_space.spaces[0].shape[1]
-            assert self.nr_of_embeddings == self.input_space.spaces[2].shape[0]
+            assert self.nr_of_embeddings == self.input_space.spaces[1].shape[0]
 
-
+ 
             in_embeddings_per_weight = tf.placeholder(tf.float32, [1, nr_of_weights, self.nr_of_embeddings_per_weight ])
-            in_weights               = tf.placeholder(tf.float32, [1, nr_of_weights ] )
             in_embeddings            = tf.placeholder(tf.float32, [1, self.nr_of_embeddings ] )
-            in_episode_nr            = tf.placeholder(tf.float32, [1, 1 ]) 
-            in_fitness               = tf.placeholder(tf.float32, [1, 1 ])
-            in_rank                  = tf.placeholder(tf.float32, [1, 1 ])
-            in_steps                 = tf.placeholder(tf.float32, [1, 1 ])
-            in_count                 = tf.placeholder(tf.float32, [1, 1 ])
+            in_weights               = tf.placeholder(tf.float32, [1, nr_of_weights ] )
+            noisyExecution_meta_data = tf.placeholder(tf.float32, [1, 8 ]) 
+            episode_meta_data        = tf.placeholder(tf.float32, [1, 8 ]) 
 
-            self.inputs = [ in_embeddings_per_weight, in_weights, in_embeddings, in_episode_nr, in_fitness, in_rank, in_steps, in_count ]
+            self.inputs = [ in_embeddings_per_weight, in_embeddings, in_weights, noisyExecution_meta_data, episode_meta_data ]
 
             # Meta data embedding stuff
-            meta = tf.concat(values=[ in_embeddings, in_episode_nr, in_fitness, in_rank, in_steps, in_count],axis=1)
+            meta = tf.concat(values=[ in_embeddings, noisyExecution_meta_data, episode_meta_data  ],axis=1)
             meta = layers.fully_connected(meta, num_outputs=self.nr_of_embeddings*4, activation_fn=tf.tanh)
             meta = layers.fully_connected(meta, num_outputs=self.nr_of_embeddings*4, activation_fn=tf.tanh)
             meta = layers.fully_connected(meta, num_outputs=self.nr_of_embeddings*3, activation_fn=tf.tanh)
@@ -238,7 +259,7 @@ class Architecture_MetaES(Architecture):
             print("tmp_embeddings", tmp_embeddings)
 
             # concat in_weights and in_embeddings_per_weight and tmp_embeddings
-            in_data_per_weight = tf.concat(values = [ in_weights,  in_embeddings_per_weight, tmp_embeddings ], axis = 2 ) # [1, nr_of_weights, 1] , [1, nr_of_weights, nr_of_embeddings_per_weight] -> [1, nr_of_weights, 1+nr_of_embeddings_per_weight]
+            in_data_per_weight = tf.concat(values = [ in_weights,  in_embeddings_per_weight, tmp_embeddings ], axis = 2 ) # [1, nr_of_weights, 1] , [1, nr_of_weights, nr_of_embeddings_per_weight] , [1, nr_of_weights, nr_of_tmp_embeddings_per_weight]-> [1, nr_of_weights, 1+nr_of_embeddings_per_weight+nr_of_tmp_embeddings_per_weight]
             print("in_data_per_weight", in_data_per_weight)
 
             in_data_per_weight  = layers.fully_connected(in_data_per_weight, num_outputs=self.nr_of_embeddings_per_weight*4, activation_fn=tf.tanh)
@@ -250,10 +271,8 @@ class Architecture_MetaES(Architecture):
             out_noise   = layers.fully_connected(in_data_per_weight, num_outputs=1, activation_fn=None)
             out_noise   = tf.squeeze(out_noise, axis=2) 
 
-            out_embeddings       = layers.fully_connected(meta, num_outputs=self.nr_of_embeddings  , activation_fn=tf.tanh)     
-            out_count_factor     = layers.fully_connected(meta, num_outputs=1, activation_fn=tf.tanh)
-            out_timespend_factor = layers.fully_connected(meta, num_outputs=1, activation_fn=tf.tanh)
-            out_steps_factor     = layers.fully_connected(meta, num_outputs=1, activation_fn=tf.tanh)
+            out_embeddings = layers.fully_connected(meta, num_outputs=self.nr_of_embeddings  , activation_fn=tf.tanh)   
+            out_factors = layers.fully_connected(meta, num_outputs=4, activation_fn=tf.tanh)#max_noisy_executions, #timespend, #steps, #steps_unrewarded,
 
             print("out_embeddings_per_weight", out_embeddings_per_weight)
             print("out_weights", out_weights)
@@ -261,12 +280,10 @@ class Architecture_MetaES(Architecture):
 
             self.outputs = [
                 out_embeddings_per_weight,
+                out_embeddings,
                 out_weights,
                 out_noise,
-                out_embeddings,
-                out_count_factor,
-                out_timespend_factor,
-                out_steps_factor,
+                out_factors,
             ]
             
             return scope
@@ -277,12 +294,13 @@ class Architecture_MetaES(Architecture):
         inputvals = self._add_batch_dim(inputvals)
         feed_dict = dict(zip(self.inputs, inputvals))
 
-        outputs = self.session.run(self.outputs, feed_dict=feed_dict)        
+        outputs = self.session.run(self.outputs, feed_dict=feed_dict)  
+      
         outputs = self._remove_batch_dim(outputs)
 
         for i in range(0,len(outputs)):
             outputs[i] = outputs[i].astype(np.float32)
-        outputs[2] = outputs[2].astype(np.float16)
+        outputs[3] = outputs[3].astype(np.float16) # noise is 16 bit
 
         print(len(outputs))
 
@@ -293,31 +311,43 @@ class Architecture_MetaES(Architecture):
 default_models = [
         {
             "name":"GAAtariPolicy",
+            "groupname":"Pix2Discr",
             "description": "",
             "classname":"Architecture_GAAtariPolicy",
-            "classargs":[[ "nonlin_type", "tanh"]],
+            "classargs":[[ "nonlin_type", "tanh"], ["dtype","float16"]],
         },{
             "name":"GAAtariPolicy",
-            "description":"",
+            "groupname":"Pix2Discr",
+            "description": "",
             "classname":"Architecture_GAAtariPolicy",
-            "classargs":[[ "nonlin_type", "relu"]],
+            "classargs":[[ "nonlin_type", "tanh"], ["dtype","float32"]],
         },{
             "name":"GAAtariPolicy",
+            "groupname":"Pix2Discr",
             "description":"",
             "classname":"Architecture_GAAtariPolicy",
-            "classargs":[[ "nonlin_type", "lrelu"]],
+            "classargs":[[ "nonlin_type", "relu"], ["dtype","float32"]],
         },{
             "name":"GAAtariPolicy",
+            "groupname":"Pix2Discr",
             "description":"",
             "classname":"Architecture_GAAtariPolicy",
-            "classargs":[[ "nonlin_type", "elu"]],
+            "classargs":[[ "nonlin_type", "lrelu"], ["dtype","float32"]],
+        },{
+            "name":"GAAtariPolicy",
+            "groupname":"Pix2Discr",
+            "description":"",
+            "classname":"Architecture_GAAtariPolicy",
+            "classargs":[[ "nonlin_type", "elu"], ["dtype","float32"]],
         },{
             "name":"ESAtariPolicy",
+            "groupname":"Pix2Discr",
             "description":"",
             "classname":"Architecture_ESAtariPolicy",
             "classargs":[],
         },{
             "name":"MetaES",
+            "groupname":"MetaOptimiser",
             "description":"",
             "classname":"Architecture_MetaES",
             "classargs":[["nr_of_embeddings_per_weight",5] , [ "nr_of_embeddings", 20 ] ],

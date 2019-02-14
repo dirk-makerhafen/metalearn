@@ -117,15 +117,6 @@ def _on_Experiment_created(self, experiment_id, experimentSet_id):
     print(self, experiment_id, experimentSet_id)
     experiment = Experiment.objects.get(id=experiment_id)
 
-    # init optimiser
-    optimiserInstance = experiment.optimiser.getInstance()
-    result = optimiserInstance.initialize(experiment.environment, experiment.architecture)  
-    if result == "delay":
-        print("Delaying Experiment create because no optimiser is available at the moment")
-        on_Experiment_created.apply_async([experiment_id, experimentSet_id], countdown=60)
-        return 
-
-
     # create first episode
     episode = Episode()
     episode.environment = experiment.environment
@@ -136,20 +127,33 @@ def _on_Experiment_created(self, experiment_id, experimentSet_id):
     episode.version = 1
     episode.public = experiment.public
 
-    episode.weightsNoise, episode.optimiserMetaData, episode.optimiserData, count_factor, timespend_factor, steps_factor = result
+    # init optimiser
+    optimiserInstance = experiment.optimiser.getInstance()
+    result = optimiserInstance.initialize(episode)  
+    if result == "delay":
+        print("Delaying Experiment create because no optimiser is available at the moment")
+        on_Experiment_created.apply_async([experiment_id, experimentSet_id], countdown=60)
+        return 
 
+    episode.weightsNoise, episode.optimiserMetaData, episode.optimiserData, new_factors = result # new_factors = max_noisy_executions, #timespend, #steps, #steps_unrewarded,
+
+    noisyExecutions_max_factor, timespend_factor, steps_factor, steps_unrewarded_factor = new_factors
 
     eset = episode.experimentSet          
     
     #factors are -1 .. 1 
     h = ( eset.subsettings_EpisodeNoisyExecutions_max           - eset.subsettings_EpisodeNoisyExecutions_min           ) / 2.0
-    episode.subsettings_EpisodeNoisyExecutions_max           = eset.subsettings_EpisodeNoisyExecutions_min            +  h + ( h  * count_factor      ) 
+    episode.subsettings_EpisodeNoisyExecutions_max           = eset.subsettings_EpisodeNoisyExecutions_min            +  h + ( h  * noisyExecutions_max_factor      ) 
+
+    h = ( eset.subsettings_EpisodeNoisyExecutions_max_timespend - eset.subsettings_EpisodeNoisyExecutions_min_timespend ) / 2.0
+    episode.subsettings_EpisodeNoisyExecutions_max_timespend = eset.subsettings_EpisodeNoisyExecutions_min_timespend  +  h + ( h * timespend_factor  )
 
     h = ( eset.subsettings_EpisodeNoisyExecutions_max_steps     - eset.subsettings_EpisodeNoisyExecutions_min_steps     ) / 2.0
     episode.subsettings_EpisodeNoisyExecutions_max_steps     = eset.subsettings_EpisodeNoisyExecutions_min_steps      +  h + ( h * steps_factor      )
 
-    h = ( eset.subsettings_EpisodeNoisyExecutions_max_timespend - eset.subsettings_EpisodeNoisyExecutions_min_timespend ) / 2.0
-    episode.subsettings_EpisodeNoisyExecutions_max_timespend = eset.subsettings_EpisodeNoisyExecutions_min_timespend  +  h + ( h * timespend_factor  )
+    h = ( eset.subsettings_EpisodeNoisyExecutions_max_steps     - eset.subsettings_EpisodeNoisyExecutions_min_steps     ) / 2.0
+    episode.subsettings_EpisodeNoisyExecutions_max_steps_unrewarded = eset.subsettings_EpisodeNoisyExecutions_min_steps      +  h + ( h * steps_unrewarded_factor )
+
     episode.save()
 
     Experiment.objects.filter(id = experiment_id).update(on_created_executed=True)
@@ -178,7 +182,7 @@ def on_Experiment_done(self, experiment_id, experimentSet_id):
 
     latest_episode = [e for e in experiment.episodes.all()][-1]
     optimiserInstance = latest_episode.optimiser.getInstance()
-    optimiserInstance.reward(latest_episode, latest_episode.fitness_max)
+    optimiserInstance.reward(latest_episode)
 
     experiments_to_go = Experiment.objects.filter(experimentSet_id = experimentSet_id).filter(~Q(status = "done")).count()
     if experiments_to_go == 0:
@@ -228,26 +232,38 @@ def _on_Episode_done(self, episode_id, experiment_id, experimentSet_id):
 
     current_episode = Episode.objects.get(id=episode_id)
 
-    # calc fitness via fitness_calc_key if needed
-    ids = current_episode.noisyExecutions.all().values_list('id', flat=True)
-    fitness_calc_keys = current_episode.noisyExecutions.filter(~Q(fitness_calc_key = "")).values_list("fitness_calc_key", flat=True)
-    for fitness_calc_key in fitness_calc_keys:
-        nes = EpisodeNoisyExecution.objects.filter(fitness_calc_key = fitness_calc_key).values_list("id", "fitness_calc_value").distinct()
-        fnes = [x[1] for x in nes]
-        ranks = rank_and_center(fnes)
-        for i in range(0,len(fnes)):
-            if nes[i][0] in ids: # update only fitness of noisyExecutions of this episode
-                EpisodeNoisyExecution.objects.filter(id=nes[i][0]).update(fitness = ranks[i])
-    commit()
-
-    # calc ranks
+    # calc fitness ranks/norm and so on
     ids_fitnesses_timespend = current_episode.noisyExecutions.all().values_list('id',"fitness","timespend").distinct()
     fitnesses = [x[1] for x in ids_fitnesses_timespend]
     timesspend  = [x[2] for x in ids_fitnesses_timespend]
 
-    ranks = rank(fitnesses)
+    fitnesses_rank  = rank(fitnesses)
+
+    m = max(numpy.abs(fitnesses))
+    if m == 0:
+        fitnesses_scaled = fitnesses
+    else:
+        fitnesses_scaled = fitnesses / m 
+
+    s = numpy.std(fitnesses)
+    if s == 0:
+        fitnesses_norm   = fitnesses - numpy.mean(fitnesses)
+    else:
+        fitnesses_norm   = (fitnesses - numpy.mean(fitnesses)) / s
+
+    m = max(numpy.abs(fitnesses_norm))
+    if m == 0:
+        fitnesses_norm_scaled = fitnesses_norm 
+    else:
+        fitnesses_norm_scaled = fitnesses_norm / m
+
     for i in range(0,len(fitnesses)):
-        EpisodeNoisyExecution.objects.filter(id=ids_fitnesses_timespend[i][0]).update(fitness_rank = ranks[i])
+        EpisodeNoisyExecution.objects.filter(id=ids_fitnesses_timespend[i][0]).update(
+            fitness_rank   = fitnesses_rank[i], 
+            fitness_scaled = fitnesses_scaled[i], 
+            fitness_norm   = fitnesses_norm[i],
+            fitness_norm_scaled = fitnesses_norm_scaled[i],
+        )
 
     # calc episode average/sum values
     current_episode.timespend   = sum(timesspend)
@@ -283,7 +299,8 @@ def _on_Episode_done(self, episode_id, experiment_id, experimentSet_id):
 
         # run optimiser
         optimiserInstance = next_episode.optimiser.getInstance()
-        next_episode.weightsNoise, next_episode.optimiserMetaData, next_episode.optimiserData, count_factor, timespend_factor, steps_factor = optimiserInstance.optimise(current_episode)
+        next_episode.weightsNoise, next_episode.optimiserMetaData, next_episode.optimiserData, new_factors = optimiserInstance.optimise(current_episode)
+        noisyExecutions_max_factor, timespend_factor, steps_factor, steps_unrewarded_factor = new_factors
 
         # clean hd space
         current_episode.weightsNoise = numpy.array([])
@@ -293,13 +310,17 @@ def _on_Episode_done(self, episode_id, experiment_id, experimentSet_id):
         
         #factors are -1 .. 1 
         h = ( eset.subsettings_EpisodeNoisyExecutions_max           - eset.subsettings_EpisodeNoisyExecutions_min           ) / 2.0
-        next_episode.subsettings_EpisodeNoisyExecutions_max           = eset.subsettings_EpisodeNoisyExecutions_min            +  h + ( h  * count_factor      ) 
+        next_episode.subsettings_EpisodeNoisyExecutions_max           = eset.subsettings_EpisodeNoisyExecutions_min            +  h + ( h  * noisyExecutions_max_factor      ) 
+
+        h = ( eset.subsettings_EpisodeNoisyExecutions_max_timespend - eset.subsettings_EpisodeNoisyExecutions_min_timespend ) / 2.0
+        next_episode.subsettings_EpisodeNoisyExecutions_max_timespend = eset.subsettings_EpisodeNoisyExecutions_min_timespend  +  h + ( h * timespend_factor  )
 
         h = ( eset.subsettings_EpisodeNoisyExecutions_max_steps     - eset.subsettings_EpisodeNoisyExecutions_min_steps     ) / 2.0
         next_episode.subsettings_EpisodeNoisyExecutions_max_steps     = eset.subsettings_EpisodeNoisyExecutions_min_steps      +  h + ( h * steps_factor      )
 
-        h = ( eset.subsettings_EpisodeNoisyExecutions_max_timespend - eset.subsettings_EpisodeNoisyExecutions_min_timespend ) / 2.0
-        next_episode.subsettings_EpisodeNoisyExecutions_max_timespend = eset.subsettings_EpisodeNoisyExecutions_min_timespend  +  h + ( h * timespend_factor  )
+        h = ( eset.subsettings_EpisodeNoisyExecutions_max_steps     - eset.subsettings_EpisodeNoisyExecutions_min_steps     ) / 2.0
+        next_episode.subsettings_EpisodeNoisyExecutions_max_steps_unrewarded = eset.subsettings_EpisodeNoisyExecutions_min_steps      +  h + ( h * steps_unrewarded_factor )
+
         next_episode.save()
 
     Episode.objects.filter(id = episode_id).update(on_done_executed=True)

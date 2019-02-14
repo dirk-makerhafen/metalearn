@@ -37,7 +37,7 @@ def compute_centered_ranks(x):
   return y
 
 def compute_weight_decay(weight_decay, list_of_ind_weights):
-  return - weight_decay * np.mean(numpy.square(list_of_ind_weights), axis=1)
+  return - weight_decay * np.mean(np.square(list_of_ind_weights), axis=1)
 
 def createNoise(seed, width):
     r = np.random.RandomState(seed)
@@ -164,11 +164,12 @@ class BaseOptimiser():
             "num_params" : -1,              # number of model parameters
         }
 
-    def initialize(self, environment, architecture):
-        self.parameters["num_params"] = self.getNrOfTrainableParameters(environment, architecture)
+    def initialize(self, episode):
+        self.parameters["num_params"] = self.getNrOfTrainableParameters(episode.environment, episode.architecture)
+        weights_dtype = episode.architecture.getInstance().dtype
 
         weightsNoise = np.array([
-            np.zeros(self.parameters["num_params"], dtype=np.float32),  # parameter 0 -> Weights
+            np.zeros(self.parameters["num_params"], dtype=weights_dtype.np),  # parameter 0 -> Weights
             [ 1, ],            # parameter 1 -> Noiselevels
         ])
 
@@ -181,20 +182,21 @@ class BaseOptimiser():
         count_factor = 1
         timespend_factor = 1
         steps_factor = 1
-    
-        return  [ weightsNoise, optimiserMetaData , optimiserData, count_factor, timespend_factor, steps_factor]
+        steps_unrewarded_factor = 1
+        return  [ weightsNoise, optimiserMetaData , optimiserData, count_factor, timespend_factor, steps_factor, steps_unrewarded_factor]
 
     def optimise(self, episode):
-        weightsNoise  = np.array( [ [], [] ] ,dtype=np.float32)
+        weights_dtype = episode.architecture.getInstance().dtype
+
+        weightsNoise  = np.array( [ [], [] ] ,dtype=weights_dtype.np)
         optimiserMetaData = ""
         optimiserData = ""
-        steps_factor = 1        
-        count_factor = 1
-        timespend_factor = 1
-        return  [ weightsNoise, optimiserData, optimiserMetaData, count_factor, timespend_factor, steps_factor ]
+        new_factors = [1,1,1,1] #max_noisy_executions, #timespend, #steps, #steps_unrewarded,
+
+        return  [ weightsNoise, optimiserData, optimiserMetaData, new_factors ]
     
     # in case of meta optimisers, overwrite this function
-    def reward(self, episode, fitness):
+    def reward(self, episode):
         pass
 
     def getNrOfTrainableParameters(self, environment, architecture):
@@ -244,11 +246,12 @@ class OptimiserOpenES(BaseOptimiser):
             "subOptimizerData" : None,
         }
 
-    def initialize(self, environment, architecture):
-        self.parameters["num_params"] = self.getNrOfTrainableParameters(environment, architecture)
+    def initialize(self, episode):
+        self.parameters["num_params"] = self.getNrOfTrainableParameters(episode.environment, episode.architecture)
+        weights_dtype = episode.architecture.getInstance().dtype
 
         weightsNoise = np.array([
-            np.zeros(self.parameters["num_params"], dtype=np.float32),  # parameter 0 -> Weights
+            np.zeros(self.parameters["num_params"], dtype=weights_dtype.np),  # parameter 0 -> Weights
             [ self.parameters["sigma"], ],            # parameter 1 -> Noiselevels
         ])
 
@@ -261,16 +264,15 @@ class OptimiserOpenES(BaseOptimiser):
         },2)
 
         # Other optimisers may changed this
-        count_factor = 1
-        timespend_factor = 1
-        steps_factor = 1
-    
-        return  [ weightsNoise, optimiserMetaData, optimiserData, count_factor, timespend_factor, steps_factor]
+        new_factors = [1,1,1,1] #max_noisy_executions, #timespend, #steps, #steps_unrewarded,
+
+        return  [ weightsNoise, optimiserMetaData, optimiserData, new_factors]
 
     def optimise(self, episode):
         optimiserMetaData = pickle.loads(episode.optimiserMetaData)
         optimiserData = pickle.loads(episode.optimiserData)
         self.parameters = optimiserMetaData["parameters"]
+        weights_dtype = episode.architecture.getInstance().dtype
 
         # collect rewards from episoed noisyExecutions
         noisyExecutions = list(episode.noisyExecutions.all())
@@ -320,7 +322,7 @@ class OptimiserOpenES(BaseOptimiser):
             self.parameters["learning_rate"] *= self.parameters["learning_rate_decay"]
 
         weightsNoise = np.array([
-            weights,                        # parameter 0 -> Weights
+            weights.astype(weights_dtype.np),                        # parameter 0 -> Weights
             [ self.parameters["sigma"], ],  # parameter 1 -> Noiselevels
         ])
 
@@ -331,13 +333,21 @@ class OptimiserOpenES(BaseOptimiser):
             "subOptimizerData" : subOptimizer.toDict(),
         },2)    
 
+        max_till_first_reward = max([n.first_rewarded_step for n in noisyExecutions]) * 3 
+        if max_till_first_reward == 0:
+            max_till_first_reward = episode.experimentSet.subsettings_EpisodeNoisyExecutions_max_steps
+        if max_till_first_reward < episode.experimentSet.subsettings_EpisodeNoisyExecutions_min_steps:
+            max_till_first_reward = episode.experimentSet.subsettings_EpisodeNoisyExecutions_min_steps
+        if max_till_first_reward > episode.experimentSet.subsettings_EpisodeNoisyExecutions_max_steps:
+            max_till_first_reward = episode.experimentSet.subsettings_EpisodeNoisyExecutions_max_steps
+        
+        steps_unrewarded_factor = np.interp(max_till_first_reward, (episode.experimentSet.subsettings_EpisodeNoisyExecutions_min_steps, episode.experimentSet.subsettings_EpisodeNoisyExecutions_max_steps), (-1, 1) )
+        
 
         # Other optimisers may changed this
-        count_factor = 1
-        timespend_factor = 1
-        steps_factor = 1
+        new_factors = [1,1,1,steps_unrewarded_factor] #max_noisy_executions, #timespend, #steps, #steps_unrewarded,
 
-        return  [ weightsNoise, optimiserMetaData, optimiserData, count_factor, timespend_factor, steps_factor]
+        return  [ weightsNoise, optimiserMetaData, optimiserData, new_factors]
 
 
 class OptimiserOpenES_Bugfixed(OptimiserOpenES):
@@ -348,6 +358,7 @@ class OptimiserOpenES_Bugfixed(OptimiserOpenES):
         optimiserMetaData = pickle.loads(episode.optimiserMetaData)
         optimiserData = pickle.loads(episode.optimiserData)
         self.parameters = optimiserMetaData["parameters"]
+        weights_dtype = episode.architecture.getInstance().dtype
 
         # collect rewards from episoed noisyExecutions
         noisyExecutions = list(episode.noisyExecutions.all())
@@ -391,7 +402,7 @@ class OptimiserOpenES_Bugfixed(OptimiserOpenES):
             self.parameters["learning_rate"] *= self.parameters["learning_rate_decay"]
 
         weightsNoise = np.array([
-            weights,                        # parameter 0 -> Weights
+            weights.astype(weights_dtype.np),                        # parameter 0 -> Weights
             [ self.parameters["sigma"], ],  # parameter 1 -> Noiselevels
         ])
         optimiserMetaData =  pickle.dumps({
@@ -401,13 +412,20 @@ class OptimiserOpenES_Bugfixed(OptimiserOpenES):
             "subOptimizerData" : subOptimizer.toDict(),
         },2)      
 
-
+        max_till_first_reward = max([n.first_rewarded_step for n in noisyExecutions]) * 3 
+        if max_till_first_reward == 0:
+            max_till_first_reward = episode.experimentSet.subsettings_EpisodeNoisyExecutions_max_steps
+        if max_till_first_reward < episode.experimentSet.subsettings_EpisodeNoisyExecutions_min_steps:
+            max_till_first_reward = episode.experimentSet.subsettings_EpisodeNoisyExecutions_min_steps
+        if max_till_first_reward > episode.experimentSet.subsettings_EpisodeNoisyExecutions_max_steps:
+            max_till_first_reward = episode.experimentSet.subsettings_EpisodeNoisyExecutions_max_steps
+        
+        steps_unrewarded_factor = np.interp(max_till_first_reward, (episode.experimentSet.subsettings_EpisodeNoisyExecutions_min_steps, episode.experimentSet.subsettings_EpisodeNoisyExecutions_max_steps), (-1, 1) )
+        
         # Other optimisers may changed this
-        count_factor = 1
-        timespend_factor = 1
-        steps_factor = 1
-
-        return  [ weightsNoise, optimiserMetaData, optimiserData, count_factor, timespend_factor, steps_factor]
+        new_factors = [1,1,1,steps_unrewarded_factor] #max_noisy_executions, #timespend, #steps, #steps_unrewarded,
+  
+        return  [ weightsNoise, optimiserMetaData, optimiserData, new_factors]
 
 
 class OptimiserESUeber(OptimiserOpenES):
@@ -419,6 +437,7 @@ class OptimiserESUeber(OptimiserOpenES):
         optimiserMetaData = pickle.loads(episode.optimiserMetaData)
         optimiserData = pickle.loads(episode.optimiserData)
         self.parameters = optimiserMetaData["parameters"]
+        weights_dtype = episode.architecture.getInstance().dtype
 
         # collect rewards from episoed noisyExecutions
         noisyExecutions = list(episode.noisyExecutions.all())
@@ -459,7 +478,7 @@ class OptimiserESUeber(OptimiserOpenES):
             self.parameters["learning_rate"] *= self.parameters["learning_rate_decay"]
 
         weightsNoise = np.array([
-            weights,                        # parameter 0 -> Weights
+            weights.astype(weights_dtype.np),                        # parameter 0 -> Weights
             [ self.parameters["sigma"], ],  # parameter 1 -> Noiselevels
         ])
         optimiserMetaData =  pickle.dumps({
@@ -468,13 +487,21 @@ class OptimiserESUeber(OptimiserOpenES):
         optimiserData =  pickle.dumps({
             "subOptimizerData" : subOptimizer.toDict(),
         },2)  
-    
-        # Other optimisers may changed this
-        count_factor = 1
-        timespend_factor = 1
-        steps_factor = 1
 
-        return  [ weightsNoise, optimiserMetaData, optimiserData, count_factor, timespend_factor, steps_factor]
+        max_till_first_reward = max([n.first_rewarded_step for n in noisyExecutions]) * 3 
+        if max_till_first_reward == 0:
+            max_till_first_reward = episode.experimentSet.subsettings_EpisodeNoisyExecutions_max_steps
+        if max_till_first_reward < episode.experimentSet.subsettings_EpisodeNoisyExecutions_min_steps:
+            max_till_first_reward = episode.experimentSet.subsettings_EpisodeNoisyExecutions_min_steps
+        if max_till_first_reward > episode.experimentSet.subsettings_EpisodeNoisyExecutions_max_steps:
+            max_till_first_reward = episode.experimentSet.subsettings_EpisodeNoisyExecutions_max_steps
+        
+        steps_unrewarded_factor = np.interp(max_till_first_reward, (episode.experimentSet.subsettings_EpisodeNoisyExecutions_min_steps, episode.experimentSet.subsettings_EpisodeNoisyExecutions_max_steps), (-1, 1) )
+        
+        # Other optimisers may changed this
+        new_factors = [1,1,1,steps_unrewarded_factor] #max_noisy_executions, #timespend, #steps, #steps_unrewarded,
+
+        return  [ weightsNoise, optimiserMetaData, optimiserData, new_factors]
 
 
 class OptimiserMetaES(BaseOptimiser):
@@ -564,13 +591,14 @@ class OptimiserMetaES(BaseOptimiser):
         }
 
 
-    def initialize(self, environment, architecture):
+    def initialize(self, episode):
         print("OptimiserMetaES initialize")
         from ..models import ExperimentSet
         from ..models import EpisodeNoisyExecution
         start_t = time.time()
 
-        self.parameters["num_params"] = self.getNrOfTrainableParameters(environment, architecture)
+        self.parameters["num_params"] = self.getNrOfTrainableParameters(episode.environment, episode.architecture)
+        weights_dtype = episode.architecture.getInstance().dtype
 
         experimentSet_id = ExperimentSet.objects.get(name=self.experimentSet_name).id
         opti_noisyExecution, lock = EpisodeNoisyExecution.getOneIdleLocked("OptimiserMetaES", public=False, experimentSetIds = [experimentSet_id ,])
@@ -585,14 +613,30 @@ class OptimiserMetaES(BaseOptimiser):
         input_space, output_space = self._getInputOutputSpaces()
 
         data = np.array([
-            np.zeros( [ self.parameters["num_params"], self.parameters["nr_of_embeddings_per_weight"] ]).astype(np.float32),    # per_weight_embeddings
-            np.random.randn( self.parameters["num_params"]).astype(np.float32),        # used weights            
-            np.zeros( [ self.parameters["nr_of_embeddings"]]).astype(np.float32),       # embeddings          
-            np.array([0.0]), # episode nr 
-            np.array([0.0]), # fitness
-            np.array([0.0]), # rank
-            np.array([0.0]), # steps
-            np.array([0.0]), # nr_of_noisy execution per expisode
+            np.ones( [ self.parameters["num_params"], self.parameters["nr_of_embeddings_per_weight"] ]),    # per_weight_embeddings
+            np.ones( [ self.parameters["nr_of_embeddings"]]),       # embeddings          
+            np.random.randn( self.parameters["num_params"]).astype(weights_dtype.np),        # used weights            
+            np.array([  # noisyExecution meta data  
+                0.0, # fitness                via fitness/abs(fitness) * tanh( log( 1 + log( 1 + abs(fitness)) ) )  # sign * loglog scale
+                0.0, # fitness_scaled
+                0.0, # fitness_rank
+                0.0, # fitness_norm           via fitness/abs(fitness) * tanh( log( 1 + log( 1 + abs(fitness)) ) )  # sign * loglog scale 
+                0.0, # fitness_norm_scaled
+                0.0, # steps                  via tanh( log( 1 + log( 1 + steps) ) )
+                0.0, # first_rewarded_step    via tanh( log( 1 + log( 1 + steps) ) )
+                0.0, # timespend              via tanh( log( 1 + log( 1 + timespend) ) )
+     
+            ]), 
+            np.array([  # episode meta data
+                np.tanh( np.log( 1 + np.log( 1 + episode.version) ) ), # episode_nr             via tanh( log( 1 + log( 1 + episode_nr) ) )
+                np.tanh( np.log( 1 + np.log( 1 + episode.experimentSet.subsettings_EpisodeNoisyExecutions_min) ) ), # noisyExecutions_min    via tanh( log( 1 + log( 1 + noisyExecutions_min) ) )
+                np.tanh( np.log( 1 + np.log( 1 + episode.experimentSet.subsettings_EpisodeNoisyExecutions_max) ) ), # noisyExecutions_max    via tanh( log( 1 + log( 1 + noisyExecutions_max) ) )
+                np.tanh( np.log( 1 + np.log( 1 + 0) ) ), # noisyExecutions_actual via tanh( log( 1 + log( 1 + noisyExecutions_actual) ) )
+                np.tanh( np.log( 1 + np.log( 1 + episode.experimentSet.subsettings_EpisodeNoisyExecutions_min_steps) ) ), # steps_min              via tanh( log( 1 + log( 1 + steps_min) ) )
+                np.tanh( np.log( 1 + np.log( 1 + episode.experimentSet.subsettings_EpisodeNoisyExecutions_max_steps) ) ), # steps_max              via tanh( log( 1 + log( 1 + steps_max) ) )
+                np.tanh( np.log( 1 + np.log( 1 + episode.experimentSet.subsettings_EpisodeNoisyExecutions_min_timespend) ) ), # timespend_min          via tanh( log( 1 + log( 1 + timespend_min) ) )
+                np.tanh( np.log( 1 + np.log( 1 + episode.experimentSet.subsettings_EpisodeNoisyExecutions_max_timespend) ) ), # timespend_max          via tanh( log( 1 + log( 1 + timespend_max) ) )
+            ]), 
         ])
 
         gpulock()
@@ -601,13 +645,11 @@ class OptimiserMetaES(BaseOptimiser):
         optimiser_Arch.close()
 
         new_embeddings_per_weight = r[0]
-        new_weights = r[1]
-        new_noise = r[2]
-        new_embeddings = r[3]
-        new_count_factor = r[4]
-        new_timespend_factor = r[5]
-        new_steps_factor = r[6]
-
+        new_embeddings = r[1]
+        new_weights = r[2].astype(weights_dtype.np) # optimiser default output is float32
+        new_noise = r[3]    # optimiser default output is float16
+        new_factors = r[4] #max_noisy_executions, #timespend, #steps, #steps_unrewarded,
+        
         weightsNoise = np.array([
             new_weights, # parameter 0 -> Weights
             new_noise,   # parameter 1 -> Noiselevels
@@ -620,15 +662,12 @@ class OptimiserMetaES(BaseOptimiser):
             "timespend" : time.time() - start_t,
         },2)
 
-        print("optimiserMetaData")
-        print(optimiserMetaData)
-
         optimiserData =  pickle.dumps({
             "embeddings_per_weight" : new_embeddings_per_weight,
             "embeddings" : new_embeddings,
         },2)  
 
-        return  [ weightsNoise, optimiserMetaData, optimiserData, new_count_factor, new_timespend_factor, new_steps_factor]
+        return [ weightsNoise, optimiserMetaData, optimiserData, new_factors ]
 
     def optimise(self, episode):
         from ..models import ExperimentSet
@@ -639,6 +678,7 @@ class OptimiserMetaES(BaseOptimiser):
 
         optimiserMetaData = pickle.loads(episode.optimiserMetaData)
         optimiserData = pickle.loads(episode.optimiserData)
+        weights_dtype = episode.architecture.getInstance().dtype
 
         self.parameters = optimiserMetaData["parameters"]
 
@@ -655,16 +695,15 @@ class OptimiserMetaES(BaseOptimiser):
         new_weights = None
         new_noise = None
         new_embeddings = optimiserData["embeddings"]
-        new_count_factor = 1
-        new_timespend_factor = 1
-        new_steps_factor = 1
+        new_factors = [1,1,1,1] #max_noisy_executions, #timespend, #steps, #steps_unrewarded,
+
 
         weightNoise = episode.weightsNoise
         
         noisyExecutions = [x for x in episode.noisyExecutions.all()]
 
         for noisyExecution in noisyExecutions:
-            noisyExecution.weights_used = weightNoise[0] + (weightNoise[1] * createNoise(noisyExecution.noiseseed, len(weightNoise[0] )) )
+            noisyExecution._weights_used = (weightNoise[0] + (weightNoise[1] * createNoise(noisyExecution.noiseseed, len(weightNoise[0] )) )).astype(weights_dtype.np)
 
 
         gpulock()
@@ -674,30 +713,52 @@ class OptimiserMetaES(BaseOptimiser):
         for noisyExecution in noisyExecutions:
             print("running meta optimiser")
 
+            if noisyExecution.fitness != 0:
+                fitness = ( noisyExecution.fitness / abs(noisyExecution.fitness) ) * np.tanh( np.log( 1 + np.log( 1 + abs(noisyExecution.fitness) ) ) )
+            else:
+                fitness = 0
+            if noisyExecution.fitness_norm != 0:
+                fitness_norm = ( noisyExecution.fitness_norm / abs(noisyExecution.fitness_norm) ) * np.tanh( np.log( 1 + np.log( 1 + abs(noisyExecution.fitness_norm) ) ) )
+            else:
+                fitness_norm = 0
+
             data = np.array([
                 new_embeddings_per_weight,      # last per_weight_embeddings
-                noisyExecution.weights_used,        # used weights            
                 new_embeddings,        # last embedding            
-                np.array([episode.version]), # 
-                np.array([noisyExecution.fitness]), # fitness
-                np.array([noisyExecution.fitness_rank]), # rank
-                np.array([ noisyExecution.steps ]), # steps of this noisy episode 
-                np.array([len(noisyExecutions) ]), # nr_of_noisy execution per expisode
+                noisyExecution._weights_used,        # used weights           
+                np.array([  # noisyExecution meta data  
+                    fitness, # fitness via fitness/abs(fitness) * tanh( log( 1 + log( 1 + abs(fitness)) ) )  # sign * loglog scale
+                    noisyExecution.fitness_scaled, # fitness_scaled
+                    noisyExecution.fitness_rank, # fitness_rank
+                    fitness_norm, # fitness_norm           via fitness/abs(fitness) * tanh( log( 1 + log( 1 + abs(fitness)) ) )  # sign * loglog scale 
+                    noisyExecution.fitness_norm_scaled, # fitness_norm_scaled
+                    np.tanh( np.log( 1 + np.log( 1 + noisyExecution.steps ) ) ), # steps                  via tanh( log( 1 + log( 1 + steps) ) )
+                    np.tanh( np.log( 1 + np.log( 1 + noisyExecution.first_rewarded_step ) ) ), # first_rewarded_step                  via tanh( log( 1 + log( 1 + first_rewarded_step) ) )
+                    np.tanh( np.log( 1 + np.log( 1 + noisyExecution.timespend ) ) ), # timespend              via tanh( log( 1 + log( 1 + timespend) ) )
+
+                ]), 
+                np.array([  # episode meta data
+                    np.tanh( np.log( 1 + np.log( 1 + episode.version) ) ), # episode_nr             via tanh( log( 1 + log( 1 + episode_nr) ) )
+                    np.tanh( np.log( 1 + np.log( 1 + episode.experimentSet.subsettings_EpisodeNoisyExecutions_min) ) ), # noisyExecutions_min    via tanh( log( 1 + log( 1 + noisyExecutions_min) ) )
+                    np.tanh( np.log( 1 + np.log( 1 + episode.experimentSet.subsettings_EpisodeNoisyExecutions_max) ) ), # noisyExecutions_max    via tanh( log( 1 + log( 1 + noisyExecutions_max) ) )
+                    np.tanh( np.log( 1 + np.log( 1 + len(noisyExecutions)) ) ), # noisyExecutions_actual via tanh( log( 1 + log( 1 + noisyExecutions_actual) ) )
+                    np.tanh( np.log( 1 + np.log( 1 + episode.experimentSet.subsettings_EpisodeNoisyExecutions_min_steps) ) ), # steps_min              via tanh( log( 1 + log( 1 + steps_min) ) )
+                    np.tanh( np.log( 1 + np.log( 1 + episode.experimentSet.subsettings_EpisodeNoisyExecutions_max_steps) ) ), # steps_max              via tanh( log( 1 + log( 1 + steps_max) ) )
+                    np.tanh( np.log( 1 + np.log( 1 + episode.experimentSet.subsettings_EpisodeNoisyExecutions_min_timespend) ) ), # timespend_min          via tanh( log( 1 + log( 1 + timespend_min) ) )
+                    np.tanh( np.log( 1 + np.log( 1 + episode.experimentSet.subsettings_EpisodeNoisyExecutions_max_timespend) ) ), # timespend_max          via tanh( log( 1 + log( 1 + timespend_max) ) )
+                ]), 
             ])
 
             r = optimiser_Arch.run(data)  # Run Optimiser NN
-            noisyExecution.weights_used = ""
+            noisyExecution._weights_used = ""
             
             gc.collect()
 
             new_embeddings_per_weight = r[0]
-            new_weights = r[1]
-            new_noise = r[2]
-            new_embeddings = r[3]
-            new_count_factor = r[4]
-            new_timespend_factor = r[5]
-            new_steps_factor = r[6]
-
+            new_embeddings = r[1]
+            new_weights = r[2].astype(weights_dtype.np)
+            new_noise = r[3]
+            new_factors = r[4] #max_noisy_executions, #timespend, #steps, #steps_unrewarded,
 
         optimiser_Arch.close()
 
@@ -716,46 +777,53 @@ class OptimiserMetaES(BaseOptimiser):
             "embeddings" : new_embeddings,
         },2)  
 
-        return  [ weightsNoise, optimiserMetaData, optimiserData, new_count_factor, new_timespend_factor, new_steps_factor]
+        return  [ weightsNoise, optimiserMetaData, optimiserData, new_factors]
 
-    def reward(self, episode, fitness):
+    #episode is the last episode created by this optimiser in some experiment
+    def reward(self, episode):
         print("reward")
+        from ..models import Episode
         from ..models import EpisodeNoisyExecution
 
+        # optimisers reward is the rank of episode in relation to all other episode that have same arch/env and have less or equal number of episodes        
+        fitlist = list(Episode.objects.filter(environment = episode.environment, architecture = episode.architecture, version__lte = episode.version).order_by("fitness_max").values_list("fitness_max",flat=True).distinct())
+        print(fitlist)
+        if len(fitlist) < 2:
+            fitness = 0
+        else:
+            myindex = fitlist.index(episode.fitness_max)
+            fitness = np.interp(myindex, (0, len(fitlist) - 1 ), (-1, 1))
+        print(fitness)
         optimiserMetaData = pickle.loads(episode.optimiserMetaData)
-
         noisyExecution = EpisodeNoisyExecution.objects.get(id = optimiserMetaData["noisyExecution_id"])
+
         data = {
-            "fitness": 0 ,  # actual reward is calculated on_Episode_done of this Optimisers Experiment
+            "fitness": fitness , 
             "timespend": optimiserMetaData["timespend"], 
             "steps": optimiserMetaData["steps"], 
-            "fitness_calc_key"   : "%s_%s_%s" % (episode.architecture.id, episode.environment.id, episode.version),
-            "fitness_calc_value" : fitness,
         }
         noisyExecution.setResult(data)
-
 
     def _getInputOutputSpaces(self):
 
         input_space = spaces.Tuple((  
             spaces.Box(low=0,    high=100, shape=[ self.parameters["num_params"], self.parameters["nr_of_embeddings_per_weight"] ]),   # Last per_weight_embeddings
-            spaces.Box(low=-180, high=180, shape=[ self.parameters["num_params"] ]),  # Used Weights#
             spaces.Box(low=-180, high=180, shape=[ self.parameters["nr_of_embeddings"] ]),  # embedding
-            spaces.Box(low=-180, high=180, shape=[ 1 ]), # episode nr   
-            spaces.Box(low=-180, high=180, shape=[ 1 ]), # fitness
-            spaces.Box(low=0,    high=1,   shape=[ 1 ]), # rank
-            spaces.Box(low=-180, high=180, shape=[ 1 ]), # steps
-            spaces.Box(low=0,    high=1,   shape=[ 1 ]), # nr_of_noisy execution per expisode
+            spaces.Box(low=-180, high=180, shape=[ self.parameters["num_params"] ]),  # Used Weights#
+            spaces.Box(low=-1, high=1, shape=[ 8 ]), # noisyExecution meta data 
+            spaces.Box(low=0,  high=1, shape=[ 8 ]),  # episode meta data
         ))
 
         output_space = spaces.Tuple((
             spaces.Box(low=0,    high=100, shape=[ self.parameters["num_params"], self.parameters["nr_of_embeddings_per_weight"] ]), # new per_weight_embeddings
+            spaces.Box(low=0, high=1, shape=[ self.parameters["nr_of_embeddings"] ]),  # embedding
             spaces.Box(low=-180, high=180, shape=[ self.parameters["num_params"]  ]),  # new Weights
             spaces.Box(low=-180, high=180, shape=[ self.parameters["num_params"]  ]),  # new noise
-            spaces.Box(low=0, high=1, shape=[ self.parameters["nr_of_embeddings"] ]),  # embedding
-            spaces.Box(low=0, high=1, shape=[ 1 ]),  # count_factor
-            spaces.Box(low=0, high=1, shape=[ 1 ]),  # timespend_factor
-            spaces.Box(low=0, high=1, shape=[ 1 ]),  # steps_factor
+            spaces.Box(low=0, high=1, shape=[ 4 ]),  # out_factors
+            #spaces.Box(low=0, high=1, shape=[ 1 ]),  # noisyExecutions_max_factor
+            #spaces.Box(low=0, high=1, shape=[ 1 ]),  # timespend_factor
+            #spaces.Box(low=0, high=1, shape=[ 1 ]),  # steps_factor
+            #spaces.Box(low=0, high=1, shape=[ 1 ]),  # steps_unrewarded_factor
         ))   
         return input_space, output_space
 
@@ -765,21 +833,25 @@ class OptimiserMetaES(BaseOptimiser):
 default_models = [
         {
             "name":"OptimiserOpenES",
+            "groupname":"ES",
             "description": "",
             "classname":"OptimiserOpenES",
             "classargs":[],
         },{
             "name":"OptimiserOpenES_Bugfixed",
+            "groupname":"ES",
             "description":"",
             "classname":"OptimiserOpenES_Bugfixed",
             "classargs":[],
         },{
             "name":"OptimiserESUeber",
+            "groupname":"ES",
             "description":"",
             "classname":"OptimiserESUeber",
             "classargs":[],
         },{
             "name":"OptimiserMetaES",
+            "groupname":"MetaOptimiser",
             "description":"",
             "classname":"OptimiserMetaES",
             "classargs":[["nr_of_embeddings_per_weight",5] , [ "nr_of_embeddings", 20 ] ],

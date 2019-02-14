@@ -41,6 +41,7 @@ class Environment(models.Model):
     created  = models.DateTimeField('created',auto_now_add=True)
     updated  = models.DateTimeField('updated',auto_now=True)  
     name     = models.CharField( max_length=200,default="")
+    groupname     = models.CharField( max_length=200,default="")
     description = models.CharField( max_length=200,default="") 
 
     classname = models.CharField( max_length=200,default="") 
@@ -79,7 +80,7 @@ class Environment(models.Model):
         return _class(**a)
 
     def __str__(self):
-        return "%s:%s" % (self.id, self.name) 
+        return "%s:%s:%s" % (self.id, self.name, self.classargs) 
 
 
 class Architecture(models.Model):
@@ -87,6 +88,7 @@ class Architecture(models.Model):
     created  = models.DateTimeField('created',auto_now_add=True)
     updated  = models.DateTimeField('updated',auto_now=True)  
     name     = models.CharField( max_length=200,default="")
+    groupname     = models.CharField( max_length=200,default="")
     description = models.CharField( max_length=200,default="") 
 
     classname = models.CharField( max_length=200,default="") 
@@ -124,7 +126,7 @@ class Architecture(models.Model):
         return _class(**a)
 
     def __str__(self):
-        return "%s:%s" % (self.id, self.name) 
+        return "%s:%s:%s" % (self.id, self.name, self.classargs) 
 
 
 class Optimiser(models.Model):
@@ -132,6 +134,7 @@ class Optimiser(models.Model):
     created  = models.DateTimeField('created',auto_now_add=True)
     updated  = models.DateTimeField('updated',auto_now=True)  
     name     = models.CharField( max_length=200,default="")
+    groupname     = models.CharField( max_length=200,default="")
     description = models.CharField( max_length=200,default="") 
 
     classname = models.CharField( max_length=200,default="") 
@@ -169,7 +172,7 @@ class Optimiser(models.Model):
         
 
     def __str__(self):
-        return "%s:%s" % (self.id, self.name) 
+        return "%s:%s:%s" % (self.id, self.name, self.classargs) 
 
 
 class ExperimentSet(models.Model):
@@ -296,8 +299,10 @@ class Episode(models.Model):
     experiment  = models.ForeignKey(Experiment, on_delete=models.CASCADE, related_name='episodes',db_index=True)
     
     # Settings for EpisodeNoisyExecutions created by this Episode
+    # these values are set by the optimiser
     subsettings_EpisodeNoisyExecutions_max = models.BigIntegerField(default=100 ) # nr of EpisodeNoisyExecution per Episode per Experiment  #actual max number of noisyExecutions for this episode, generated, between experimentSet.episodeNoisyExecutions_count_min and experimentSet.episodeNoisyExecutions_count_max via a factor given by the optimiser on_Experiment_created and on_Episode_done
     subsettings_EpisodeNoisyExecutions_max_steps = models.BigIntegerField(default=10000)  # steps per NoisyExecutions
+    subsettings_EpisodeNoisyExecutions_max_steps_unrewarded = models.BigIntegerField(default=10000)#  
     subsettings_EpisodeNoisyExecutions_max_timespend = models.BigIntegerField(default=120)# max time per NoisyExecutions, in seconds
     
     # Stats
@@ -412,12 +417,15 @@ class EpisodeNoisyExecution(models.Model):
     status = models.CharField(max_length= 200, choices=EpisodeNoisyExecution_STATUS_ENUM, default="idle")
     timespend = models.FloatField(default = 0) # number of seconds this task spend running on a client, including weightdownloads/init 
     steps = models.BigIntegerField(default = 0) # number of steps that were executed, aka nr of frames seen, game steps taken, images seen, hotdogs classified and so on
-    fitness   = models.FloatField(default = 0) # actual reward returned by whatever was executed
-    fitness_rank   = models.FloatField(default = 0) # fitness rank within episode, 0..1, 0 worst, 1 best. Calculated on_Episode_done 
-    fitness_calc_key = models.CharField(max_length=100, default="", blank=True) # 
-    fitness_calc_value   = models.FloatField(default = 0)
-    # if fitness_calc_key and value are given, fitness and fitness_rank are calculated on_Episode_done as the center (-1..1) rank of this fitness_calc_value in comparision 
-    # to ALL other EpisodeNoisyExecution that have the same fitness_calc_key. this value is outdated right after calculating it, so use only one or recalc. 
+    first_rewarded_step = models.BigIntegerField(default = 0) # 0 = no/unknown step rewarded
+    fitness = models.FloatField(default = 0) # actual reward returned by whatever was executed
+
+    #Calculated on_Episode_done 
+    fitness_scaled = models.FloatField(default = 0) # fitness scaled within episode to -1..1 via fitness / max(abs(fitness))
+    fitness_rank = models.FloatField(default = 0) # fitness rank within episode, 0..1, 0 worst, 1 best
+    fitness_norm = models.FloatField(default = 0) # normalized fitness within episode via  (fitnesses - np.mean(fitnesses)) / np.std(fitnesses)
+    fitness_norm_scaled = models.FloatField(default = 0) # fitness_norm scaled within episode to -1..1 via fitness_norm / max(abs(fitness_norms))
+
     on_created_executed = models.BooleanField(default=False) # set after task.on_EpisodeNoisyExecution_created is done
     on_done_executed = models.BooleanField(default=False)# set after task.on_EpisodeNoisyExecution_done is done
 
@@ -433,14 +441,13 @@ class EpisodeNoisyExecution(models.Model):
 
     def setResult(self, data):
         if self.status != "done":
-            print("setResult %s" % data)
+            print("setResult %s" % ", ".join(["%s: %s" % (key, data[key]) for key in sorted(data)]))
             self.fitness = data["fitness"]
             self.timespend = data["timespend"]
             self.steps = data["steps"]
-            if "fitness_calc_key" in data:
-                self.fitness_calc_key = data["fitness_calc_key"]
-            if "fitness_calc_value" in data:
-                self.fitness_calc_value = data["fitness_calc_value"]
+            if "first_rewarded_step" in data:
+                self.first_rewarded_step = data["first_rewarded_step"]
+
             self.status = "done"
             self.save()
 
