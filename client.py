@@ -43,7 +43,7 @@ try:
             URL = 'http://%s' % URL
 
         if ARG == "daemon" and CNT == 0:
-            CNT = multiprocessing.cpu_count()/2
+            CNT = int(multiprocessing.cpu_count()/2)
 except:
     print('''
         client.py daemon url cores                  # run as daemon
