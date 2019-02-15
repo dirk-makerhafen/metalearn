@@ -288,20 +288,21 @@ def workerstats(request):
     steps_last_10_min = models.EpisodeNoisyExecution.objects.filter(status="done", updated__gte = time_threshold, experiment__public=True).aggregate(Sum('steps'))
     idlecnt = models.EpisodeNoisyExecution.objects.filter(status="idle", experiment__public=True).count()
     permin = done_last_10_min / 10.0 
+
+    stepsmin = 0
+    stepspersecpercore = 0
     if steps_last_10_min["steps__sum"] != None:
         stepsmin = steps_last_10_min["steps__sum"] / 10.0 
-        stepspersecpercore = stepsmin / 60.0 / len(clients)
-    else:
-        stepsmin = 0
-        stepspersecpercore = 0
-
+        if len(clients) > 0:
+            stepspersecpercore = stepsmin / 60.0 / len(clients)
+        
     return JsonResponse({
         "threads": len(clients) ,
         "clients": len(set(clients)),
         "taskspermin": permin,
         "tasksidle": idlecnt,
         "stepspermin": stepsmin,
-        "stepspersecpercore": stepsmin,
+        "stepspersecpercore": stepspersecpercore,
     },safe=False)   
 
 
