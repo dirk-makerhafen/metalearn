@@ -267,7 +267,8 @@ def on_sigterm(signum, frame):
     ACTIVE = False
     if ARG == "daemon":
         os.system("ps x | grep 'python3 client.py run ' | grep -v grep | grep -v nice | cut -dp -f1 > /tmp/tokill")
-        print("%s to kill" % len(open("/tmp/tokill","r").read().split("\n")))
+        l = len(open("/tmp/tokill","r").read().split("\n"))
+        print("%s to kill" % )
         if l > 0:
             os.system("cat /tmp/tokill | xargs kill")
         stop()
@@ -297,6 +298,7 @@ elif ARG == "stop":
     os.system("ps x | grep 'python3 client.py daemon ' | grep -v grep | grep -v nice | cut -dp -f1 | cut -d? -f1 > /tmp/tokill")
     os.system("ps x | grep 'python3 client.py run '    | grep -v grep | grep -v nice | cut -dp -f1 | cut -d? -f1 >> /tmp/tokill")
     print("%s to kill" % len(open("/tmp/tokill","r").read().split("\n")))
+    l = len(open("/tmp/tokill","r").read().split("\n"))
     if l > 0:
         os.system("cat /tmp/tokill | xargs kill")
 
