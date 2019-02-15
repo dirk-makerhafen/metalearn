@@ -25,27 +25,7 @@
                 <li><a href="/metalearn/experiment/list">Experiments</a></li>
                 <li><a href="/metalearn/episode/list">Episodes</a></li>
                 <li><a href="/metalearn/episodenoisyexecution/list">Episode Execution</a></li>
-                <li>    
-                    <div>
-                        <div class="col-xs-4">Workers</div>
-                        <div class="col-xs-2" id="info_clients"></div>
-                        <div class="col-xs-4">Threads</div>
-                        <div class="col-xs-2"id="info_threads"></div>
-                    </div>
-                    <div>
-                        <div class="col-xs-4">Tasks&nbspidle</div>
-                        <div class="col-xs-2" id="info_tasksidle"></div>
-                        <div class="col-xs-4">Tasks/Min</div>
-                        <div class="col-xs-2" id="info_taskspermin"></div>
-                    </div>
-                    <div>
-                        <div class="col-xs-4">Steps/Min</div>
-                        <div class="col-xs-2" id="info_stepspermin"></div>
-                        <div class="col-xs-4">Steps/Sec/Thread</div>
-                        <div class="col-xs-2" id="info_stepspersecpercore"></div>
-                    </div>      
-                </li>
-                
+              
             </ul>
         </div>
 
@@ -65,20 +45,43 @@
                 setTimeout(function(){ loadStats() }, seconds_to_sleep * 1000);
                 seconds_to_sleep += seconds_to_sleep_backoff;
             }
-            setTimeout(function(){ loadStats() }, 2000);
+            setTimeout(function(){ loadStats() }, 1000);
         </script>
 
         <div class="navbar-custom-menu">
             <ul class="nav navbar-nav">
+                <li>
+                    <style>
+                        .tlb {
+                            margin-right:30px
+                        }
+                        .slabel {
+                            color:black;
+                            text-align:right;
+                        }
+                        .snr {
+                            min-width:60px;
+                            text-align:center;
+                        }
+                    </style>
+                    <table class="tlb">
+                        <tr>
+                            <td class="slabel">Workers          </td> <td class="snr" id="info_clients">0</td>
+                            <td class="slabel">Threads          </td> <td class="snr" id="info_threads">0</td>
+                            <td class="slabel">Steps/Sec/Thread </td> <td class="snr" id="info_stepspersecpercore">0</td>
+                        </tr>
+                        <tr>
+                            <td class="slabel">Tasks&nbspidle   </td> <td class="snr" id="info_tasksidle">0</td>
+                            <td class="slabel">Tasks/Min        </td> <td class="snr" id="info_taskspermin">0</td>
+                            <td class="slabel">Steps/Min        </td> <td class="snr" id="info_stepspermin">0</td>
+                        </tr>
+                    </table>
+                </li>  
+
                 {% block header_dropdowns %}
                         
                     {% if request.user.is_authenticated %}
-                        <li class="user user-menu">
-                            <a>
-                                <img src="/static/default_avatar.png" class="user-image" alt="User Image">
-                                <span class="hidden-xs">{% firstof request.user.get_short_name request.user.get_username %}</span>
-                            </a>
-                        </li>
+ 
                         <li class="user user-menu">
                             <a href="/logout">
                                 <span class="glyphicon glyphicon-log-out" aria-hidden="true"></span>

@@ -51,7 +51,7 @@
                                 <table id="ExperimentsTable" class="table table-bordered table-hover dataTable" role="grid">
                                     <thead>
                                         <tr role="row">
-                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Id</th>
+
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Public</th>
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Status</th>
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Timespend</th>
@@ -60,7 +60,10 @@
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Fitness Avg</th>
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Fitness Med</th>
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Fitness top10</th>
+
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Episodes</th>
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Noisy Executions</th>
+
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> On Created Executed</th>
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> On Done Executed</th>
                                             <th class="" tabindex="0" rowspan="1" colspan="1"> Action</th>
@@ -69,7 +72,6 @@
                                     <tbody>                       
                                         {% for experiment in object.experiments.all %}
                                             <tr>
-                                                <td><a href="/metalearn/experiment/{{ experiment.id }}">{{ experiment.id }}</a></td>
                                                 <td>{{ experiment.public }}</td>
                                                 <td>{{ experiment.status }}</td>
                                                 <td>{{ experiment.timespend }}</td>
@@ -78,7 +80,10 @@
                                                 <td>{{ experiment.fitness_avg }}</td>
                                                 <td>{{ experiment.fitness_median }}</td>
                                                 <td>{{ experiment.fitness_top10 }}</td>
-                                                <td>{{ experiment.episodes_count }}</td>
+
+                                                <td>{{ experiment.episodes_done_count        }} / {{ experiment.episodes_count }}</td>
+                                                <td>{{ experiment.noisyExecutions_done_count }} / {{ experiment.noisyExecutions_count }}</td>
+      
                                                 <td>{{ experiment.on_created_executed }}</td>
                                                 <td>{{ experiment.on_done_executed }}</td>
 
