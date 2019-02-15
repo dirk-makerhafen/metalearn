@@ -294,8 +294,11 @@ elif ARG == "status":
 
 
 elif ARG == "stop":
-    os.system("ps x | grep 'python3 client.py daemon ' | grep -v grep | grep -v nice | cut -dp -f1 | cut -d? -f1| xargs kill")
-    os.system("ps x | grep 'python3 client.py run '    | grep -v grep | grep -v nice | cut -dp -f1 | cut -d? -f1| xargs kill")
+    os.system("ps x | grep 'python3 client.py daemon ' | grep -v grep | grep -v nice | cut -dp -f1 | cut -d? -f1 > /tmp/tokill")
+    os.system("ps x | grep 'python3 client.py run '    | grep -v grep | grep -v nice | cut -dp -f1 | cut -d? -f1 >> /tmp/tokill")
+    print("%s to kill" % len(open("/tmp/tokill","r").read().split("\n")))
+    if l > 0:
+        os.system("cat /tmp/tokill | xargs kill")
 
 else:
     print("unknown arg '%s'" % ARG)
