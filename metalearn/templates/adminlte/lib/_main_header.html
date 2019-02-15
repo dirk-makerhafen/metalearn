@@ -25,8 +25,41 @@
                 <li><a href="/metalearn/experiment/list">Experiments</a></li>
                 <li><a href="/metalearn/episode/list">Episodes</a></li>
                 <li><a href="/metalearn/episodenoisyexecution/list">Episode Execution</a></li>
+                <li>    
+                    <div>
+                        <div class="col-xs-4">Workers</div>
+                        <div class="col-xs-2" id="info_clients"></div>
+                        <div class="col-xs-4">Threads</div>
+                        <div class="col-xs-2"id="info_threads"></div>
+                    </div>
+                    <div>
+                        <div class="col-xs-4">Tasks&nbspidle</div>
+                        <div class="col-xs-2" id="info_tasksidle"></div>
+                        <div class="col-xs-4">Tasks/Min</div>
+                        <div class="col-xs-2" id="info_taskspermin"></div>
+                    </div>
+                   
+                </li>
+                
             </ul>
         </div>
+
+
+        <script>    
+            var seconds_to_sleep = 10;
+            var seconds_to_sleep_backoff = 10;  // reduce backend load
+            function loadStats(){
+                $.getJSON( "/workerstats", function( data ) {
+                    $("#info_clients").html(data["clients"]);
+                    $("#info_threads").html(data["threads"]);
+                    $("#info_tasksidle").html(data["tasksidle"]);
+                    $("#info_taskspermin").html(data["taskspermin"]);
+                });
+                setTimeout(function(){ loadStats() }, seconds_to_sleep * 1000);
+                seconds_to_sleep += seconds_to_sleep_backoff;
+            }
+            setTimeout(function(){ loadStats() }, 2000);
+        </script>
 
         <div class="navbar-custom-menu">
             <ul class="nav navbar-nav">

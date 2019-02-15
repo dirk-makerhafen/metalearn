@@ -12,5 +12,5 @@ master_url = ""
 # pre -> some script to be executed before every command
 
 cluster_nodes = [
-    { "host": "1.2.3.4", "port": "22", "username": "user", "password": None, "comment": "", "remote_dir": default_remote_dir , "pre": ""},
+    { "name": "somename", "host": "1.2.3.4", "port": "22", "username": "user", "password": None, "remote_dir": default_remote_dir , "pre": ""},
 ]

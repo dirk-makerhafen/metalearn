@@ -50,24 +50,20 @@
                                 <table id="ExperimentsTable" class="table table-bordered table-hover dataTable" role="grid">
                                     <thead>
                                         <tr role="row">
-                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Id</th>
-                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Created</th>
-                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Updated</th>
-
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Number </th>
-                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Noiseseed </th>
 
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Status</th>
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Steps</th>
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> First rewarded step</th>
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Timespend</th>
 
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Fitness</th>
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Fitness Scaled</th>
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Fitness Rank</th>
-                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Fitness Calc Key</th>
-                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Fitness Calc Value</th>
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Fitness Norm</th>
+                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Fitness Norm Scaled</th>
                                             
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Client </th>
-                                            <th class="sorting" tabindex="0" rowspan="1" colspan="1"> Lock </th>
 
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> On Created Executed</th>
                                             <th class="sorting" tabindex="0" rowspan="1" colspan="1"> On Done Executed</th>
@@ -77,24 +73,22 @@
                                     <tbody>                       
                                         {% for noisyExecution in object.noisyExecutions.all %}
                                             <tr>
-                                                <td><a href="/metalearn/episodenoisyexecution/{{ noisyExecution.id }}">{{ noisyExecution.id }}</a></td>
-                                                <td>{{ noisyExecution.created }}</td>
-                                                <td>{{ noisyExecution.updated }}</td>
 
                                                 <td>{{ noisyExecution.number }}</td>
-                                                <td>{{ noisyExecution.noiseseed }}</td>
 
                                                 <td>{{ noisyExecution.status }}</td>
                                                 <td>{{ noisyExecution.steps }}</td>
+                                                <td>{{ noisyExecution.first_rewarded_step }}</td>
                                                 <td>{{ noisyExecution.timespend }}</td>
 
                                                 <td>{{ noisyExecution.fitness }}</td>
+                                                <td>{{ noisyExecution.fitness_scaled }}</td>
                                                 <td>{{ noisyExecution.fitness_rank }}</td>
-                                                <td>{{ noisyExecution.fitness_calc_key }}</td>
-                                                <td>{{ noisyExecution.fitness_calc_value }}</td>
+                                                <td>{{ noisyExecution.fitness_norm }}</td>
+                                                <td>{{ noisyExecution.fitness_norm_scaled }}</td>
+
 
                                                 <td>{{ noisyExecution.client }}</td>
-                                                <td>{{ noisyExecution.lock }}</td>
 
                                                 <td>{{ noisyExecution.on_created_executed }}</td>
                                                 <td>{{ noisyExecution.on_done_executed }}</td>

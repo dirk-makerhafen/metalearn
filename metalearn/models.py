@@ -58,14 +58,26 @@ class Environment(models.Model):
     def experimentSets_count(self):
         return self.experimentSets.all().count()
     @property
+    def experimentSets_done_count(self):
+        return self.experimentSets.filter(status="done").count()
+    @property
     def experiments_count(self):
         return self.experiments.all().count()
+    @property
+    def experiments_done_count(self):
+        return self.experiments.filter(status="done").count()
     @property
     def episodes_count(self):
         return self.episodes.all().count()
     @property
+    def episodes_done_count(self):
+        return self.episodes.filter(status="done").count()
+    @property
     def noisyExecutions_count(self):
         return self.noisyExecutions.all().count()
+    @property
+    def noisyExecutions_done_count(self):
+        return self.noisyExecutions.filter(status="done").count()
 
 
     class Meta:
@@ -105,14 +117,26 @@ class Architecture(models.Model):
     def experimentSets_count(self):
         return self.experimentSets.all().count()
     @property
+    def experimentSets_done_count(self):
+        return self.experimentSets.filter(status="done").count()
+    @property
     def experiments_count(self):
         return self.experiments.all().count()
+    @property
+    def experiments_done_count(self):
+        return self.experiments.filter(status="done").count()
     @property
     def episodes_count(self):
         return self.episodes.all().count()
     @property
+    def episodes_done_count(self):
+        return self.episodes.filter(status="done").count()
+    @property
     def noisyExecutions_count(self):
         return self.noisyExecutions.all().count()
+    @property
+    def noisyExecutions_done_count(self):
+        return self.noisyExecutions.filter(status="done").count()
 
 
     class Meta:
@@ -151,14 +175,26 @@ class Optimiser(models.Model):
     def experimentSets_count(self):
         return self.experimentSets.all().count()
     @property
+    def experimentSets_done_count(self):
+        return self.experimentSets.filter(status="done").count()
+    @property
     def experiments_count(self):
         return self.experiments.all().count()
+    @property
+    def experiments_done_count(self):
+        return self.experiments.filter(status="done").count()
     @property
     def episodes_count(self):
         return self.episodes.all().count()
     @property
+    def episodes_done_count(self):
+        return self.episodes.filter(status="done").count()
+    @property
     def noisyExecutions_count(self):
         return self.noisyExecutions.all().count()
+    @property
+    def noisyExecutions_done_count(self):
+        return self.noisyExecutions.filter(status="done").count()
 
     class Meta:
         unique_together = ('classname', 'classargs',)
@@ -208,9 +244,26 @@ class ExperimentSet(models.Model):
     on_created_executed = models.BooleanField(default=False) # set after task.on_ExperimentSet_created is done
     on_done_executed = models.BooleanField(default=False)# set after task.on_ExperimentSet_done is done
 
+
     @property
     def experiments_count(self):
         return self.experiments.all().count()
+    @property
+    def experiments_done_count(self):
+        return self.experiments.filter(status="done").count()
+    @property
+    def episodes_count(self):
+        return self.episodes.all().count()
+    @property
+    def episodes_done_count(self):
+        return self.episodes.filter(status="done").count()
+    @property
+    def noisyExecutions_count(self):
+        return self.noisyExecutions.all().count()
+    @property
+    def noisyExecutions_done_count(self):
+        return self.noisyExecutions.filter(status="done").count()
+
 
     #experiments -> Experiment
 
@@ -269,8 +322,14 @@ class Experiment(models.Model):
     def episodes_count(self):
         return self.episodes.all().count()
     @property
+    def episodes_done_count(self):
+        return self.episodes.filter(status="done").count()
+    @property
     def noisyExecutions_count(self):
         return self.noisyExecutions.all().count()
+    @property
+    def noisyExecutions_done_count(self):
+        return self.noisyExecutions.filter(status="done").count()
 
 
     def __str__(self):
@@ -329,6 +388,9 @@ class Episode(models.Model):
     @property
     def noisyExecutions_count(self):
         return self.noisyExecutions.all().count()
+    @property
+    def noisyExecutions_done_count(self):
+        return self.noisyExecutions.filter(status="done").count()
 
 
     def __str__(self):

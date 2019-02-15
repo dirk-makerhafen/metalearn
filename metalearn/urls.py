@@ -16,6 +16,7 @@ urlpatterns = [
     path('putResult/<int:episodeNoisyExecutionId>/<str:lock>', views.putResult, name='putResult'),
 
     path('stats/<str:settings>', views.stats, name='stats'),
+    path('workerstats', views.workerstats, name='workerstats'),
     path('admin/', admin.site.urls),
 
     path('', include(views.EnvironmentView().get_urls())),

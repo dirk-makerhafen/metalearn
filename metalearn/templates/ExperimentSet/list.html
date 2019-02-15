@@ -7,6 +7,8 @@
         <th class="th-field-{{ field|lower }} th-fieldtype-{{ field_name.1|lower }}">{{ field_name.0 }}</th>
     {% endfor %}
     <th>Experiments</th>
+    <th>Episodes</th>
+    <th>Noisy Executions</th>
     <th>{% trans "Actions" %}</th>
 {% endblock thead %}
 
@@ -23,7 +25,11 @@
                 </td>
             {% endfor %}
 
-            <td>{{ object.experiments_count }}</td>
+            <td>{{ object.experiments_done_count     }} / {{ object.experiments_count }}</td>
+            <td>{{ object.episodes_done_count        }} / {{ object.episodes_count }}</td>
+            <td>{{ object.noisyExecutions_done_count }} / {{ object.noisyExecutions_count }}</td>
+
+
       
             <td>
                 {% block actions %}

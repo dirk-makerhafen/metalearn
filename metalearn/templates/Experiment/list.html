@@ -24,9 +24,10 @@
                 </td>
             {% endfor %}
 
-            <td>{{ object.episodes_count }}</td>
-            <td>{{ object.noisyExecutions_count }}</td>
+            <td>{{ object.episodes_done_count        }} / {{ object.episodes_count }}</td>
+            <td>{{ object.noisyExecutions_done_count }} / {{ object.noisyExecutions_count }}</td>
       
+
             <td>
                 {% block actions %}
                     {% crud_url object "detail" namespace as url %}

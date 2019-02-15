@@ -4,7 +4,7 @@ from django.template import loader
 from django.views.decorators.csrf import csrf_exempt
 from django import forms
 from collections import OrderedDict
-
+from django.utils import timezone
 from django.urls import reverse
 from django.http import JsonResponse
 import random
@@ -112,7 +112,7 @@ class ExperimentSetView(CRUDView):
         'status',
     ]
     list_fields = [ 
-        'id', 'created', 'updated', 
+        'id', 
         'name', 'description', 
 
         'subsettings_Experiments_max',
@@ -162,7 +162,6 @@ class ExperimentView(CRUDView):
         'status',
     ]
     list_fields = [ 
-        'id', 'created', 'updated', 
         'environment', 'architecture', 'optimiser', 'experimentSet',  
         'public', 'status', 'timespend', 
         'fitness_min', 'fitness_max', 'fitness_avg', 'fitness_median', 'fitness_top10' ,
@@ -203,14 +202,12 @@ class EpisodeView(CRUDView):
         'status',
     ]
     list_fields = [ 
-        'id', 'created', 'updated', 'version', 
-        'environment', 'architecture', 'optimiser', 'experimentSet', 'experiment', 
-        'public', 'status', 'hasFolder', 'timespend', 
-        #'subsettings_EpisodeNoisyExecutions_max', 'subsettings_EpisodeNoisyExecutions_max_steps', 'subsettings_EpisodeNoisyExecutions_max_timespend', 
+        'environment', 'architecture', 'optimiser', 'experimentSet', 'experiment', 'public',
+        'version', 'status',   'timespend', 
+        'subsettings_EpisodeNoisyExecutions_max', 'subsettings_EpisodeNoisyExecutions_max_steps', 'subsettings_EpisodeNoisyExecutions_max_steps_unrewarded', 'subsettings_EpisodeNoisyExecutions_max_timespend',
         'fitness_min', 'fitness_max', 'fitness_avg', 'fitness_median', 'fitness_top10' ,
         'on_created_executed', 'on_done_executed'
     ]
-
 
     def get_urls(self):
         pre = ""
@@ -246,15 +243,14 @@ class EpisodeNoisyExecutionView(CRUDView):
         'status', 'client' 
     ]
     list_fields = [ 
-        'id', 'created', 'updated', 'number', 
         'environment', 'architecture', 'optimiser', 'experimentSet', 'experiment', 'episode', 
-        'lock', 'client', 
-        'status', 'timespend', 'steps', 
-        'fitness', 'fitness_rank', 'fitness_calc_key', 'fitness_calc_value', 
+        'number', 'status', 'steps', 'first_rewarded_step', 'timespend',  
+        'fitness', 'fitness_scaled', 'fitness_rank', 'fitness_norm', 'fitness_norm_scaled', 
+        'client', 
         'on_created_executed', 'on_done_executed'
     ]
 
-    
+
     def get_urls(self):
         pre = ""
         try:
@@ -281,6 +277,21 @@ class EpisodeNoisyExecutionView(CRUDView):
 def dashboard(request):
     template = loader.get_template('dashboard.html')
     return HttpResponse(template.render({}, request))
+
+def workerstats(request):
+    time_threshold = timezone.now() - datetime.timedelta(minutes=10)
+
+    clients = list(models.EpisodeNoisyExecution.objects.filter(status="locked", experiment__public=True).values_list("client",flat=True))
+    done_last_10_min = models.EpisodeNoisyExecution.objects.filter(status="done", updated__gte = time_threshold, experiment__public=True).count()
+    idlecnt = models.EpisodeNoisyExecution.objects.filter(status="idle", experiment__public=True).count()
+
+    permin = done_last_10_min / 10.0 
+    return JsonResponse({
+        "threads": len(clients) ,
+        "clients": len(set(clients)),
+        "taskspermin": permin,
+        "tasksidle": idlecnt,
+    },safe=False)   
 
 
 # client can request preferedEpisodeIds if he has those episodes in cache so no additional download of weights is needed

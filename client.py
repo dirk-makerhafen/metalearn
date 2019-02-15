@@ -1,4 +1,9 @@
 import os
+os.environ["KMP_BLOCKTIME"] = "0"
+os.environ["KMP_SETTINGS"]  = "1"
+os.environ["KMP_AFFINITY"]  = "granularity=fine,verbose,compact,1,0"
+
+
 import json
 import requests
 import numpy
@@ -261,7 +266,10 @@ def on_sigterm(signum, frame):
     CNT = 0
     ACTIVE = False
     if ARG == "daemon":
-        os.system("ps x | grep 'python3 client.py run ' | grep -v grep | grep -v nice | cut -dp -f1 | xargs kill")
+        os.system("ps x | grep 'python3 client.py run ' | grep -v grep | grep -v nice | cut -dp -f1 > /tmp/tokill")
+        print("%s to kill" % len(open("/tmp/tokill","r").read().split("\n")))
+        if l > 0:
+            os.system("cat /tmp/tokill | xargs kill")
         stop()
         exit(0)
 
