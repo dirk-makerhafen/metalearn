@@ -62,6 +62,8 @@ class Architecture():
                 config = tf.ConfigProto(
                     device_count = {'GPU': 0}
                 )
+            config.intra_op_parallelism_threads = 1
+            config.inter_op_parallelism_threads = 1
 
             self.session = tf.Session(config=config)
             self.session.run(tf.initialize_variables(tf.all_variables()))

@@ -7,6 +7,8 @@ from collections import OrderedDict
 from django.utils import timezone
 from django.urls import reverse
 from django.http import JsonResponse
+from django.db.models import Avg, Count, Min, Sum
+
 import random
 import redis
 import json
@@ -283,14 +285,23 @@ def workerstats(request):
 
     clients = list(models.EpisodeNoisyExecution.objects.filter(status="locked", experiment__public=True).values_list("client",flat=True))
     done_last_10_min = models.EpisodeNoisyExecution.objects.filter(status="done", updated__gte = time_threshold, experiment__public=True).count()
+    steps_last_10_min = models.EpisodeNoisyExecution.objects.filter(status="done", updated__gte = time_threshold, experiment__public=True).aggregate(Sum('steps'))
     idlecnt = models.EpisodeNoisyExecution.objects.filter(status="idle", experiment__public=True).count()
-
     permin = done_last_10_min / 10.0 
+    if steps_last_10_min["steps__sum"] != None:
+        stepsmin = steps_last_10_min["steps__sum"] / 10.0 
+        stepspersecpercore = stepsmin / 60.0 / len(clients)
+    else:
+        stepsmin = 0
+        stepspersecpercore = 0
+
     return JsonResponse({
         "threads": len(clients) ,
         "clients": len(set(clients)),
         "taskspermin": permin,
         "tasksidle": idlecnt,
+        "stepspermin": stepsmin,
+        "stepspersecpercore": stepsmin,
     },safe=False)   
 
 

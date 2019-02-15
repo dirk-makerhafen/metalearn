@@ -38,7 +38,12 @@
                         <div class="col-xs-4">Tasks/Min</div>
                         <div class="col-xs-2" id="info_taskspermin"></div>
                     </div>
-                   
+                    <div>
+                        <div class="col-xs-4">Steps/Min</div>
+                        <div class="col-xs-2" id="info_stepspermin"></div>
+                        <div class="col-xs-4">Steps/Sec/Thread</div>
+                        <div class="col-xs-2" id="info_stepspersecpercore"></div>
+                    </div>      
                 </li>
                 
             </ul>
@@ -54,6 +59,8 @@
                     $("#info_threads").html(data["threads"]);
                     $("#info_tasksidle").html(data["tasksidle"]);
                     $("#info_taskspermin").html(data["taskspermin"]);
+                    $("#info_stepspermin").html(data["stepspermin"]);
+                    $("#info_stepspersecpercore").html(data["stepspersecpercore"]);
                 });
                 setTimeout(function(){ loadStats() }, seconds_to_sleep * 1000);
                 seconds_to_sleep += seconds_to_sleep_backoff;
