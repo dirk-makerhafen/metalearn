@@ -109,6 +109,18 @@ class ExperimentSetView(CRUDView):
     model = models.ExperimentSet
     template_name_base = "ExperimentSet"
 
+    display_fields = [ 
+        'id', 'created', 'updated', 
+        'name', 'description', 
+        'public', 'status', 'timespend', 
+        'environments', 'architectures', 'optimisers', 
+        'subsettings_Experiments_max', 'subsettings_Episodes_max', 
+        'subsettings_EpisodeNoisyExecutions_min', 'subsettings_EpisodeNoisyExecutions_max', 
+        'subsettings_EpisodeNoisyExecutions_min_steps', 'subsettings_EpisodeNoisyExecutions_max_steps', 
+        'subsettings_EpisodeNoisyExecutions_min_timespend', 'subsettings_EpisodeNoisyExecutions_max_timespend', 
+        'on_created_executed', 'on_done_executed', 
+    ]
+
     list_filter = [ 
         'id', 
         'status',
@@ -158,6 +170,15 @@ class ExperimentView(CRUDView):
     template_name_base = "Experiment"
     paginate_by = 200
 
+
+    display_fields = [ 
+        'id', 'created', 'updated', 
+        'public', 'status', 'timespend', 
+        'environment', 'architecture', 'optimiser', 'experimentSet', 
+        'fitness_min', 'fitness_max', 'fitness_avg', 'fitness_median', 'fitness_top10', 
+        'on_created_executed', 'on_done_executed', 
+    ]
+
     list_filter = [ 
         'id', 
         'environment', 'architecture', 'optimiser', 'experimentSet', 
@@ -197,6 +218,15 @@ class EpisodeView(CRUDView):
     model = models.Episode
     template_name_base = "Episode"
     paginate_by = 200
+
+    display_fields = [ 
+        'id', 'created', 'updated', 
+        'environment', 'architecture', 'optimiser', 'experimentSet', 'experiment', 'public',
+        'version', 'status',   'timespend', 
+        'subsettings_EpisodeNoisyExecutions_max', 'subsettings_EpisodeNoisyExecutions_max_steps', 'subsettings_EpisodeNoisyExecutions_max_steps_unrewarded', 'subsettings_EpisodeNoisyExecutions_max_timespend',
+        'fitness_min', 'fitness_max', 'fitness_avg', 'fitness_median', 'fitness_top10' ,
+        'on_created_executed', 'on_done_executed'
+    ]
 
     list_filter = [ 
         'id', 
@@ -238,6 +268,15 @@ class EpisodeNoisyExecutionView(CRUDView):
     model = models.EpisodeNoisyExecution
     template_name_base = "EpisodeNoisyExecution"
     paginate_by = 200
+
+    display_fields = [ 
+        'id', 'created', 'updated', 
+        'environment', 'architecture', 'optimiser', 'experimentSet', 'experiment', 'episode', 
+        'number', 'status', 'steps', 'first_rewarded_step', 'timespend',  
+        'fitness', 'fitness_scaled', 'fitness_rank', 'fitness_norm', 'fitness_norm_scaled', 
+        'client', 
+        'on_created_executed', 'on_done_executed'
+    ]
 
     list_filter = [ 
         'id', 
