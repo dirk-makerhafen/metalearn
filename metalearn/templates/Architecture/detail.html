@@ -1,6 +1,7 @@
 {% extends 'cruds/detail.html' %}
 {% load i18n %}
 {% load crud_tags %}
+{% load metalearn_tags %}
 
 {% block content %}
     <div class="row">
@@ -71,7 +72,7 @@
                                                 <td>{{ experimentSet.description }}</td>
                                                 <td>{{ experimentSet.public }}</td>
                                                 <td>{{ experimentSet.status }}</td>
-                                                <td>{{ experimentSet.timespend }}</td>
+                                                <td>{{ experimentSet.timespend  | format_float }}</td>
                                                 <td>{{ experimentSet.on_created_executed }}</td>
                                                 <td>{{ experimentSet.on_done_executed }}</td>
                                                 <td> 

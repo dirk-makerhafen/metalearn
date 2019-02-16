@@ -1,6 +1,7 @@
 {% extends 'cruds/detail.html' %}
 {% load i18n %}
 {% load crud_tags %}
+{% load metalearn_tags %}
 
 {% block content %}
     <div class="row">
@@ -79,13 +80,13 @@
                                                 <td>{{ noisyExecution.status }}</td>
                                                 <td>{{ noisyExecution.steps }}</td>
                                                 <td>{{ noisyExecution.first_rewarded_step }}</td>
-                                                <td>{{ noisyExecution.timespend }}</td>
+                                                <td>{{ noisyExecution.timespend  | format_float }}</td>
 
-                                                <td>{{ noisyExecution.fitness }}</td>
-                                                <td>{{ noisyExecution.fitness_scaled }}</td>
-                                                <td>{{ noisyExecution.fitness_rank }}</td>
-                                                <td>{{ noisyExecution.fitness_norm }}</td>
-                                                <td>{{ noisyExecution.fitness_norm_scaled }}</td>
+                                                <td>{{ noisyExecution.fitness  | format_float }}</td>
+                                                <td>{{ noisyExecution.fitness_scaled  | format_float }}</td>
+                                                <td>{{ noisyExecution.fitness_rank  | format_float }}</td>
+                                                <td>{{ noisyExecution.fitness_norm  | format_float }}</td>
+                                                <td>{{ noisyExecution.fitness_norm_scaled  | format_float }}</td>
 
 
                                                 <td>{{ noisyExecution.client }}</td>
