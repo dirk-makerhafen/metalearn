@@ -338,10 +338,10 @@ def workerstats(request):
     return JsonResponse({
         "threads": len(clients) ,
         "clients": len(set(clients)),
-        "taskspermin": permin,
+        "taskspermin": int(permin),
         "tasksidle": idlecnt,
-        "stepspermin": stepsmin,
-        "stepspersecpercore": stepspersecpercore,
+        "stepspermin": int(stepsmin),
+        "stepspersecpercore": int(stepspersecpercore),
     },safe=False)   
 
 
