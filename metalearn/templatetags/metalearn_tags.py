@@ -12,7 +12,16 @@ from django.utils.safestring import mark_safe
 from django import template
 import datetime
 
+
+
 register = template.Library()
+
+register = template.Library()
+if hasattr(register, 'assignment_tag'):
+    register_tag = register.assignment_tag
+else:
+    register_tag = register.simple_tag
+
 
 @register.filter
 def format_uS2time(value):
@@ -34,16 +43,12 @@ def format_number(value):
     r =  "{:,}".format(int(value))
     return r.replace(",",".")
 
-
-
-register = template.Library()
-
-register = template.Library()
-if hasattr(register, 'assignment_tag'):
-    register_tag = register.assignment_tag
-else:
-    register_tag = register.simple_tag
-
+@register.filter
+def format_float(value):
+    if value == "":
+        return ""
+    r =  "{:,}".format(round(float(value),6))
+    return r.replace(",",".")
 
 
 @register_tag

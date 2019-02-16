@@ -53,7 +53,7 @@ class remote_scripts():
 
         python3 -m pip install --upgrade pip
         python3 -m pip install -r requirements.txt
-
+       
         rm db.sqlite*
         rm -r metalearn/migrations
         rm -r /tmp/WeightsNoiseCache/*.cache
@@ -102,12 +102,10 @@ class remote_scripts():
             build --action_env PYTHON_BIN_PATH="%(remote_dir)s/venv/bin/python3"
             build --action_env PYTHON_LIB_PATH="%(remote_dir)s/venv/lib/python\$PYTHONVERSION/site-packages/"
             build --python_path="%(remote_dir)s/venv/bin/python3"
-            build:xla --define with_xla_support=true
-            build --config=xla
             build --action_env TF_NEED_OPENCL_SYCL="0"
             build --action_env TF_NEED_ROCM="0"
             build --action_env TF_NEED_CUDA="0"
-            build --action_env TF_DOWNLOAD_CLANG="0"
+            build --action_env TF_DOWNLOAD_CLANG="1"
             build:opt --copt=-march=native
             build:opt --copt=-Wno-sign-compare
             build:opt --host_copt=-march=native
@@ -117,7 +115,7 @@ class remote_scripts():
 
         rm -r /tmp/tensorflow_pkg* 2>/dev/null
     
-        bazel build --config=mkl --config=opt //tensorflow/tools/pip_package:build_pip_package
+        bazel build --config=opt -k //tensorflow/tools/pip_package:build_pip_package
 
         ./bazel-bin/tensorflow/tools/pip_package/build_pip_package /tmp/tensorflow_pkg
 
@@ -125,9 +123,8 @@ class remote_scripts():
     '''
 
     clear = '''
-        if [ -d "%(remote_dir)s" ]; then
-          rm -rf %(remote_dir)s
-        fi
+        rm -rf %(remote_dir)s       2>/dev/null
+        rm -rf /tmp/tensorflow_pkg  2>/dev/null
     '''
 
     #remove leading spaced that only exist because this formating in python is nicer 
@@ -220,7 +217,7 @@ else:
 
 
 for cluster_node in cluster_nodes:
-    if HOST == None or HOST == cluster_node["host"] or HOST == cluster["name"]:
+    if HOST == None or HOST == cluster_node["host"] or HOST == cluster_node["name"]:
         taskqueue.put([rs, cluster_node])
          
 
