@@ -132,12 +132,12 @@
                                                 <td><a href="/metalearn/experiment/{{ experiment.id }}">{{ experiment.id }}</a></td>
                                                 <td>{{ experiment.public }}</td>
                                                 <td>{{ experiment.status }}</td>
-                                                <td>{{ experiment.timespend }}</td>
-                                                <td>{{ experiment.fitness_min }}</td>
-                                                <td>{{ experiment.fitness_max }}</td>
-                                                <td>{{ experiment.fitness_avg }}</td>
-                                                <td>{{ experiment.fitness_median }}</td>
-                                                <td>{{ experiment.fitness_top10 }}</td>
+                                                <td>{{ experiment.timespend  | format_float}}</td>
+                                                <td>{{ experiment.fitness_min  | format_float}}</td>
+                                                <td>{{ experiment.fitness_max  | format_float}}</td>
+                                                <td>{{ experiment.fitness_avg  | format_float}}</td>
+                                                <td>{{ experiment.fitness_median  | format_float}}</td>
+                                                <td>{{ experiment.fitness_top10  | format_float}}</td>
                                                 <td>{{ experiment.on_created_executed }}</td>
                                                 <td>{{ experiment.on_done_executed }}</td>
                                                 <td> 

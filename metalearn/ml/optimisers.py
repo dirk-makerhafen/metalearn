@@ -170,7 +170,7 @@ class BaseOptimiser():
 
         weightsNoise = np.array([
             np.zeros(self.parameters["num_params"], dtype=weights_dtype.np),  # parameter 0 -> Weights
-            [ 1, ],            # parameter 1 -> Noiselevels
+            [ 0.1, ],            # parameter 1 -> Noiselevels
         ])
 
         optimiserMetaData =  pickle.dumps({
@@ -310,7 +310,10 @@ class OptimiserOpenES(BaseOptimiser):
         subOptimizer.stepsize = self.parameters["learning_rate"]
 
         # update weights
+        print(weights)
+        print(g)
         weights, update_ratio = subOptimizer.update(weights, -g )
+        print(weights)
 
         # main bit done.
 

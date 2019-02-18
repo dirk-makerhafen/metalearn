@@ -47,9 +47,8 @@ def format_number(value):
 def format_float(value):
     if value == "":
         return ""
-    r =  "{:,}".format(round(float(value),6))
-    return r.replace(",",".")
-
+    return round(float(value),6)
+    
 
 @register_tag
 def crud_url(obj, action, namespace=None):

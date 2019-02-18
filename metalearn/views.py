@@ -158,11 +158,28 @@ class ExperimentSetView(CRUDView):
             self.trigger_on_done,
             name=utils.crud_url_name(self.model, 'trigger_on_done', prefix=self.urlprefix))
         )   
+        urls.append(
+            url(r"^%s/(?P<pk>[^/]+)/pause$" % (base_name,),
+            self.pause,
+            name=utils.crud_url_name(self.model, 'pause', prefix=self.urlprefix))
+        )   
+        urls.append(
+            url(r"^%s/(?P<pk>[^/]+)/unpause$" % (base_name,),
+            self.unpause,
+            name=utils.crud_url_name(self.model, 'unpause', prefix=self.urlprefix))
+        )   
         return urls
 
     def trigger_on_done(self, request, pk):
         tasks.on_ExperimentSet_done.delay(pk)
         return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
+
+    def pause(self, request, pk):
+        models.EpisodeNoisyExecution.objects.filter(experimentSet_id = pk, status="idle").update(status="pause")
+
+    def unpause(self, request, pk):
+        models.EpisodeNoisyExecution.objects.filter(experimentSet_id = pk, status="pause").update(status="idle")
+
 
 
 class ExperimentView(CRUDView):

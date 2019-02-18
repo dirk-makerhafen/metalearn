@@ -28,7 +28,7 @@ GPU_PARALLEL_PROCESSES = 3
 SECRET_KEY = '4q=18^^)q@(fa=1vb6zujwa5-ooyn00crh1*5q1_bva1pf4shh'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ["*"]
 INTERNAL_IPS = ["192.168.6.131"]
