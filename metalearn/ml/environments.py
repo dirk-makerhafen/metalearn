@@ -5,7 +5,7 @@ from gym import spaces
 import tensorflow as tf
 #from nn import tf_util
 
-
+from .atari_gym_wrappers import wrap_deepmind
 
 class EnvironmentInstance():
     def initialize(self):
@@ -215,46 +215,30 @@ class OpenAiGym(EnvironmentInstance):
     def firststep(self):
         self.need_firststep = False
         self.observation = self.gym.reset()
-        self.observation, self.reward, self.done, self.info = self.gym.step([1])
     
     def close(self):
         if self.gym != None:    
             self.gym.close()
 
 
+
+class DeepmindAtari(OpenAiGym):
+    
+    def initialize(self):
+        self.gym = wrap_deepmind(gym.make(self.gymname))
+        self.observation_space = self.gym.observation_space
+        self.action_space = self.gym.action_space
+        self.need_firststep = True
+        self.observation = None
+        self.reward = None
+        self.done = False
+        self.info = None
+
+
+
 # create these if you db is empty
 default_models = [
         {
-            "name":"Frostbite-v0",
-            "groupname":"Atari",
-            "description": "",
-            "classname":"OpenAiGym",
-            "classargs":[[ "gymname", "Frostbite-v0"]],
-        },{
-            "name":"FreewayNoFrameskip-v4",
-            "groupname":"Atari",
-            "description": "",
-            "classname":"OpenAiGym",
-            "classargs":[[ "gymname", "FreewayNoFrameskip-v4"]],
-        },{
-            "name":"Alien-v0",
-            "groupname":"Atari",
-            "description": "",
-            "classname":"OpenAiGym",
-            "classargs":[[ "gymname", "Alien-v0"]],
-        },{
-            "name":"Pong-v0",
-            "groupname":"Atari",
-            "description": "",
-            "classname":"OpenAiGym",
-            "classargs":[[ "gymname", "Pong-v0"]],
-        },{
-            "name":"Gravitar-v0",
-            "groupname":"Atari",
-            "description": "",
-            "classname":"OpenAiGym",
-            "classargs":[[ "gymname", "Gravitar-v0"]],
-        },{
             "name":"OptimiserMetaESEnvironment",
             "groupname":"Optimiser",
             "description": "",
@@ -262,6 +246,16 @@ default_models = [
             "classargs":[["nr_of_embeddings_per_weight",5] , [ "nr_of_embeddings", 20 ] ],
         },
     ]
+
+
+for game in ["Gravitar", "Frostbite", "Pong", "Alien" , "Freeway"]:
+    default_models.append({
+        "name": "%s_dm" % game,
+        "groupname":"DeepmindAtari",
+        "description": "Deepminds wrapper, skip4, stack4,84x84",
+        "classname":"DeepmindAtari",
+        "classargs":[[ "gymname", "%sNoFrameskip-v4" % game]],
+    })
 
 
 

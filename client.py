@@ -155,7 +155,7 @@ def run():
         noisyExecution = getNextEpisodeNoisyExecution()
         if noisyExecution == None:
             print("Nothing to do, waiting")
-            time.sleep(5)
+            time.sleep(random.randint(10,50))
             continue
 
         print("#################")

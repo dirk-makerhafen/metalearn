@@ -176,9 +176,11 @@ class ExperimentSetView(CRUDView):
 
     def pause(self, request, pk):
         models.EpisodeNoisyExecution.objects.filter(experimentSet_id = pk, status="idle").update(status="pause")
+        return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
 
     def unpause(self, request, pk):
         models.EpisodeNoisyExecution.objects.filter(experimentSet_id = pk, status="pause").update(status="idle")
+        return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
 
 
 
